@@ -1,28 +1,46 @@
 from pynput import keyboard
+from pynput.keyboard import Key
 import time
+from queue import Queue
 
 
-def on_key_release(key): #what to do on key-release
-  global CURR_TIME, WAS_RELEASED, PREV_KEY
-  CURR_TIME = round(time.time() - CURR_TIME, 10)
-  print(f"The key {key} was pressed for {CURR_TIME}")
-  WAS_RELEASED = True
+class KeyLogger:
+  def __init__(self, initial_sentence=""):
+    self.initial_sentence = initial_sentence
+    self.presses = list()
+    self.releases = list()
+    self.curr = 0
+    self.counter = {}
+    self.aligner = list()
 
-def on_key_press(key): #what to do on key-press
-  global CURR_TIME, WAS_RELEASED, PREV_KEY
+    print(f"Sentence to write: {self.initial_sentence}")
 
-  if WAS_RELEASED:
-    CURR_TIME = time.time()
-    print(f"{key} is pressed")
-    WAS_RELEASED = False
-    PREV_KEY = key
-  else:
-    return
+  def on_key_release(self, key):
+    print(f"The key {key} was released at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
+    self.aligner.append(self.counter[key])
+    self.releases.append((key, time.time()))
 
-if __name__ == "__main__":
-  WAS_RELEASED = True
-  PREV_KEY = keyboard.KeyCode("")
-  CURR_TIME = time.time()
+  def on_key_press(self, key):
+    if key == Key.enter:
+      return False
+    print(f"The key {key} was pressed at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
+    self.presses.append((key, time.time()))
+    self.curr += 1
+    self.counter[key] = self.curr
 
-  with keyboard.Listener(on_press = on_key_press, on_release = on_key_release) as listener: #setting code for listening key-press
+  def _align_releases(self):
+    _, self.releases = zip(*sorted(zip(self.aligner, self.releases)))
+    self.releases = list(self.releases)
+
+  def listen(self):
+    with keyboard.Listener(on_press = self.on_key_press, on_release = self.on_key_release) as listener: #setting code for listening key-press
       listener.join()
+    self._align_releases()
+  
+  
+if __name__ == "__main__":
+  keylogger = KeyLogger(initial_sentence="hello world")
+  keylogger.listen()
+
+  print(keylogger.presses)
+  print(keylogger.releases)
