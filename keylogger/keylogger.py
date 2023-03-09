@@ -72,6 +72,6 @@ class KeyLogger:
 if __name__ == "__main__":
   keylogger = KeyLogger(initial_sentence="hello world")
   keylogger.listen()
-  # keylogger.to_csv("hello.csv")
+  keylogger.to_csv("hello.csv")
   print(keylogger.presses)
   print(keylogger.releases)
