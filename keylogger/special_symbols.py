@@ -71,7 +71,7 @@ PYNPUT_TO_DEFAULT = {   # align key names used in pynput to the ones defined in 
   "{": "openbracket",
   "}": "closebracket",
   "|": "backslash",
-  ":": ";",
+  ":": "semicolon",
   "\"": "singlequote",
   "<": "comma",
   ">": "period",

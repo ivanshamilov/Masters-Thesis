@@ -1,9 +1,10 @@
 import csv
+import json
 import sys
 import threading
 import time
 from contextlib import contextmanager
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 
 import pynput
 from pynput import keyboard
@@ -31,18 +32,19 @@ class InputController(object):
 
 
 class KeyLogger(object):
-  def __init__(self, initial_sentence: Optional[str] = "") -> None:
+  def __init__(self, mapping: Dict[str, int], initial_sentence: str) -> None:
     self.initial_sentence = initial_sentence
     self.presses = list()
     self.releases = list()
     self.curr = 0
     self.counter = {}
     self.aligner = list()
-    self._columns = ["SENTENCE", "USER_INPUT", "KEY", "PRESS_TIME", "RELEASE_TIME"]
+    self._columns = ["SENTENCE", "USER_INPUT", "KEYCODE", "KEY", "PRESS_TIME", "RELEASE_TIME"]
     self.input_controller = InputController()
     self.collected_input = ""
+    self.mapping = mapping
 
-  def _parse_key(self, key: Union[KeyCode, Key]) -> Union[KeyCode, str]:
+  def _parse_key(self, key: Union[KeyCode, Key]) -> str:
     _key = None
     match type(key):
       case pynput.keyboard._darwin.KeyCode: _key = key.char.lower()
@@ -70,7 +72,9 @@ class KeyLogger(object):
     self.releases = list(self.releases)
 
   def concat_results(self) -> None:
-    self.result = [[*x, y[1]] for (x, y) in zip(self.presses, self.releases)]
+    self.result = [[code, *x, y[1]] for (x, y, code) in zip(self.presses, self.releases, 
+                                                      list(map(lambda x: self.mapping[x[0]], self.presses))
+                                                      )]
 
   def listen(self) -> None:
     with self.input_controller.capture_input() as collected_input:
@@ -94,6 +98,10 @@ class KeyLogger(object):
 
 
 if __name__ == "__main__":
-  keylogger = KeyLogger(initial_sentence="Hello! I am Ivan, I live in Wroclaw :)")
+  MAPPING = dict()
+  with open("key-codes.json", "rb") as f:
+      MAPPING = json.load(f)
+
+  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="Hello! I am Ivan, I live in Wroclaw :)")
   keylogger.listen()
   keylogger.to_csv("hello.csv")
