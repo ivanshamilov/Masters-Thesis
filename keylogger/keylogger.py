@@ -38,7 +38,7 @@ class KeyLogger(object):
     self.curr = 0
     self.counter = {}
     self.aligner = list()
-    self._columns = ["SENTENCE", "USER_INPUT", "LETTER", "PRESS_TIME", "RELEASE_TIME"]
+    self._columns = ["SENTENCE", "USER_INPUT", "KEY", "PRESS_TIME", "RELEASE_TIME"]
     self.input_controller = InputController()
     self.collected_input = ""
 
