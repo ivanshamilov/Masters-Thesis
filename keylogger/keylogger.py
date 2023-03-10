@@ -9,7 +9,7 @@ import pynput
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 
-from special_symbols import SPECIAL_SYMBOLS
+from special_symbols import SPECIAL_SYMBOLS, PYNPUT_TO_DEFAULT
 
 
 class InputController(object):
@@ -42,15 +42,18 @@ class KeyLogger(object):
     self.input_controller = InputController()
     self.collected_input = ""
 
-  def _parse_key(self, key: Union[KeyCode, Key]) -> KeyCode:
+  def _parse_key(self, key: Union[KeyCode, Key]) -> Union[KeyCode, str]:
+    _key = None
     if type(key) == pynput.keyboard._darwin.KeyCode:
       if key.char in SPECIAL_SYMBOLS.keys():
-        return SPECIAL_SYMBOLS[key.char]
+        _key = SPECIAL_SYMBOLS[key.char]
       else:
-        return KeyCode.from_char(key.char.lower())
+        _key = key.char.lower()
     else:
-      return KeyCode.from_vk(key.value.vk)
-
+      # NUMPAD virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
+      _key = key.name
+    return PYNPUT_TO_DEFAULT.get(_key, _key)
+    
   def on_key_release(self, key: Union[KeyCode, Key]) -> None:
     # print(f"The key {key} was released at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
     key = self._parse_key(key)
@@ -96,6 +99,6 @@ class KeyLogger(object):
 
 
 if __name__ == "__main__":
-  keylogger = KeyLogger(initial_sentence="hello world! I am Ivan :)")
+  keylogger = KeyLogger(initial_sentence="Hello! I am Ivan, I live in Wroclaw :)")
   keylogger.listen()
   keylogger.to_csv("hello.csv")
