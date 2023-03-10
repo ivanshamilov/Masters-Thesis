@@ -9,7 +9,7 @@ import pynput
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 
-from special_symbols import SPECIAL_SYMBOLS, PYNPUT_TO_DEFAULT
+from special_symbols import PYNPUT_TO_DEFAULT
 
 
 class InputController(object):
@@ -44,14 +44,9 @@ class KeyLogger(object):
 
   def _parse_key(self, key: Union[KeyCode, Key]) -> Union[KeyCode, str]:
     _key = None
-    if type(key) == pynput.keyboard._darwin.KeyCode:
-      if key.char in SPECIAL_SYMBOLS.keys():
-        _key = SPECIAL_SYMBOLS[key.char]
-      else:
-        _key = key.char.lower()
-    else:
-      # NUMPAD virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
-      _key = key.name
+    match type(key):
+      case pynput.keyboard._darwin.KeyCode: _key = key.char.lower()
+      case _: _key = key.name # add numpads, virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
     return PYNPUT_TO_DEFAULT.get(_key, _key)
     
   def on_key_release(self, key: Union[KeyCode, Key]) -> None:

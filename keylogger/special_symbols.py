@@ -1,27 +1,25 @@
-from pynput.keyboard import KeyCode
-
-SPECIAL_SYMBOLS = {  # align <shift> + <key> symbols to the actual keys
-  "!": "1",
-  "@": "2",
-  "#": "3",
-  "$": "4",
-  "%": "5",
-  "^": "6",
-  "&": "7",
-  "*": "8",
-  "(": "9",
-  ")": "0",
-  "_": "-",
-  "+": "=",
-  "{": "[",
-  "}": "]",
-  "|": "\\",
-  ":": ";",
-  "\"": "\'",
-  "<": ",",
-  ">": ".",
-  "?": "/"
-}
+# SPECIAL_SYMBOLS = {  # align <shift> + <key> symbols to the actual keys
+#   "!": "1",
+#   "@": "2",
+#   "#": "3",
+#   "$": "4",
+#   "%": "5",
+#   "^": "6",
+#   "&": "7",
+#   "*": "8",
+#   "(": "9",
+#   ")": "0",
+#   "_": "-",
+#   "+": "=",
+#   "{": "[",
+#   "}": "]",
+#   "|": "\\",
+#   ":": ";",
+#   "\"": "\'",
+#   "<": ",",
+#   ">": ".",
+#   "?": "/"
+# }
 
 """
 pynput has its own representation of symbols (both keynames and keycode)
@@ -55,4 +53,27 @@ PYNPUT_TO_DEFAULT = {   # align key names used in pynput to the ones defined in 
   ".": "period",
   "-": "dash",
   "=": "equalsign",
+  "[": "openbracket",
+  "]": "closebracket",
+  # <shift> + key
+  "!": "1",
+  "@": "2",
+  "#": "3",
+  "$": "4",
+  "%": "5",
+  "^": "6",
+  "&": "7",
+  "*": "8",
+  "(": "9",
+  ")": "0",
+  "_": "dash",
+  "+": "equalsign",
+  "{": "openbracket",
+  "}": "closebracket",
+  "|": "backslash",
+  ":": ";",
+  "\"": "singlequote",
+  "<": "comma",
+  ">": "period",
+  "?": "forwardslash"
 }
