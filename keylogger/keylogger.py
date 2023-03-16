@@ -46,9 +46,14 @@ class KeyLogger(object):
 
   def _parse_key(self, key: Union[KeyCode, Key]) -> str:
     _key = None
-    match type(key):
-      case pynput.keyboard._darwin.KeyCode: _key = key.char.lower()
-      case _: _key = key.name # add numpads, virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
+    if type(key) == Key:
+      _key = key.name
+    else:
+      _key = key.char.lower()
+    # match type(key):
+    #   case pynput.keyboard._darwin.KeyCode: _key = key.char.lower()
+    #   # case KeyCode: _key = key.char.lower()
+    #   case _: _key = key.name # add numpads, virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
     return PYNPUT_TO_DEFAULT.get(_key, _key)
     
   def on_key_release(self, key: Union[KeyCode, Key]) -> None:
@@ -59,7 +64,6 @@ class KeyLogger(object):
 
   def on_key_press(self, key: Union[KeyCode, Key]) -> None:
     if key == Key.enter:
-      print(self.aligner)
       return False
     # print(f"The key {key} was pressed at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
     key = self._parse_key(key)
