@@ -99,9 +99,9 @@ class KeyLogger(object):
 
 if __name__ == "__main__":
   MAPPING = dict()
-  with open("key-codes.json", "rb") as f:
+  with open("mappings/key-codes.json", "rb") as f:
       MAPPING = json.load(f)
 
-  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="Hello! I am Ivan, I live in Wroclaw :)")
+  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="Hello World! I am Ivan :)")
   keylogger.listen()
   keylogger.to_csv("hello.csv")
