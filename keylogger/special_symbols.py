@@ -31,6 +31,7 @@ PYNPUT_TO_DEFAULT = {   # align key names used in pynput to the ones defined in 
   "shift_r": "shift",
   "alt_r": "alt",
   "caps_lock": "capslock",
+  "shift_l": "shift",
 
   # ARROWS
   "left": "leftarrow",
