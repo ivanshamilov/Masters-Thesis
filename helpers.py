@@ -12,6 +12,12 @@ from polars.exceptions import ColumnNotFoundError, ComputeError
 MAIN_DIR = "data/small_data"
 BIG_DATA_DIR = "/Users/ivanshamilov/Uni/Master's/S3/msc-thesis/data/big_data/Keystrokes/files"
 
+
+with open("mappings/key-hand.json", "r") as f:
+    KEY_HAND = json.load(f)
+
+EXISTING_KEYS = [int(x) for x in list(KEY_HAND.keys())]
+
 class Mapper:
     
     def __init__(self):
@@ -113,10 +119,16 @@ def read_data_for_participant(participant_id: int,
                               directory=MAIN_DIR,
                               preprocess: bool=True,
                               drop_timestamps: bool=True,
-                              print_info: bool=True):
+                              print_info: bool=True,
+                              columns_to_read: List[str]=[],
+                              **kwargs):
     global MAIN_DIR
-    df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), sep="\t")
-    df = df.with_columns([pl.col("LETTER").str.to_lowercase().alias("LETTER")])
+    if not columns_to_read:
+        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), sep="\t", infer_schema_length=10**12, **kwargs)
+    else:
+        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), sep="\t", columns=columns_to_read, infer_schema_length=10**12, **kwargs)
+    if "LETTER" in columns_to_read:
+        df = df.with_columns([pl.col("LETTER").str.to_lowercase().alias("LETTER")])
     if preprocess:
         df = calculate_features(df, drop_timestamps=drop_timestamps)
     if print_info:
@@ -132,14 +144,13 @@ def create_bigrams(df: pl.DataFrame, ignore_keys: List[int] = [0, 16, 32]) -> pl
     df = df.select([
         pl.col("PREV_KEYCODE"),
         pl.col("KEYCODE"),
-        pl.col("LETTER"),
         pl.col("RELEASE_PRESS_TIME").alias("INTER_KEY_INTERVAL"),
         pl.when((~pl.col("PREV_KEYCODE").is_in(ignore_keys)) & (~pl.col("KEYCODE").is_in(ignore_keys)))
         .then(pl.struct(["PREV_KEYCODE", "KEYCODE"]).apply(
             lambda x: f"{mapper.get_key_from_code(x['PREV_KEYCODE'])};{mapper.get_key_from_code(x['KEYCODE'])}"
         ).alias("BIGRAM"))
-        .otherwise(-1)
-    ]).filter(pl.col("BIGRAM") != "-1")
+        .otherwise(-1),
+    ]).filter((pl.col("BIGRAM") != "-1") & ((pl.col("PREV_KEYCODE").is_in(EXISTING_KEYS)) & (pl.col("KEYCODE").is_in(EXISTING_KEYS))))
     return df
 
 
