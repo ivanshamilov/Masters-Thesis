@@ -8,12 +8,14 @@ from typing import Union, List
 import polars as pl
 from polars.exceptions import ColumnNotFoundError, ComputeError
 
-
-MAIN_DIR = "data/small_data"
-BIG_DATA_DIR = "/Users/ivanshamilov/Uni/S3/Masters-Thesis/data/big_data/Keystrokes/files"
+from .vars import ROOT_DIR
 
 
-with open("../mappings/key-hand.json", "r") as f:
+MAIN_DIR = f"{ROOT_DIR}/data/small_data"
+BIG_DATA_DIR = f"{ROOT_DIR}/data/big_data/Keystrokes/files"
+
+
+with open(f"{ROOT_DIR}/mappings/key-hand.json", "r") as f:
     KEY_HAND = json.load(f)
 
 EXISTING_KEYS = [int(x) for x in list(KEY_HAND.keys())]
@@ -22,9 +24,9 @@ class Mapper:
     
     def __init__(self):
         self.KEY_TO_CODE = dict()
-        with open("../mappings/key-codes.json", "rb") as f:
+        with open(f"{ROOT_DIR}/mappings/key-codes.json", "rb") as f:
             self.KEY_TO_CODE = json.load(f)
-        with open("../mappings/key-hand.json", "rb") as f:
+        with open(f"{ROOT_DIR}/mappings/key-hand.json", "rb") as f:
             self.KEY_TO_HAND = json.load(f)
         self.KEY_TO_CODE["<SoS>"] = 0 # Start of Sequence
         self.KEY_TO_CODE = dict(sorted(self.KEY_TO_CODE.items(), key=lambda x: x[1]))
@@ -107,7 +109,8 @@ def calculate_features(df: pl.DataFrame, drop_timestamps: bool = True):
         ).otherwise(0).alias("RELEASE_PRESS_TIME"),
         pl.when(new_sentences).then(
             pl.col("RELEASE_TIME") - pl.col("RELEASE_TIME").shift_and_fill(fill_value=0)
-        ).otherwise(0).alias("RELEASE_RELEASE_TIME"),            
+        ).otherwise(0).alias("RELEASE_RELEASE_TIME"),     
+        pl.when(new_sentences).then(0).otherwise(1).alias("NEW_SENTENCE"),
         pl.col("*")
     ])
     if drop_timestamps: df.drop(["RELEASE_TIME", "PRESS_TIME"])

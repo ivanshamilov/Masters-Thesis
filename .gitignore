@@ -132,3 +132,4 @@ dmypy.json
 
 # Data Folders
 data/
+analysis/vars.py
