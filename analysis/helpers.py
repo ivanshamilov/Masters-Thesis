@@ -10,10 +10,10 @@ from polars.exceptions import ColumnNotFoundError, ComputeError
 
 
 MAIN_DIR = "data/small_data"
-BIG_DATA_DIR = "/Users/ivanshamilov/Uni/Master's/S3/msc-thesis/data/big_data/Keystrokes/files"
+BIG_DATA_DIR = "/Users/ivanshamilov/Uni/S3/Masters-Thesis/data/big_data/Keystrokes/files"
 
 
-with open("mappings/key-hand.json", "r") as f:
+with open("../mappings/key-hand.json", "r") as f:
     KEY_HAND = json.load(f)
 
 EXISTING_KEYS = [int(x) for x in list(KEY_HAND.keys())]
@@ -22,9 +22,9 @@ class Mapper:
     
     def __init__(self):
         self.KEY_TO_CODE = dict()
-        with open("mappings/key-codes.json", "rb") as f:
+        with open("../mappings/key-codes.json", "rb") as f:
             self.KEY_TO_CODE = json.load(f)
-        with open("mappings/key-hand.json", "rb") as f:
+        with open("../mappings/key-hand.json", "rb") as f:
             self.KEY_TO_HAND = json.load(f)
         self.KEY_TO_CODE["<SoS>"] = 0 # Start of Sequence
         self.KEY_TO_CODE = dict(sorted(self.KEY_TO_CODE.items(), key=lambda x: x[1]))
@@ -91,22 +91,22 @@ class Mapper:
 
 def calculate_features(df: pl.DataFrame, drop_timestamps: bool = True):
     try:
-        new_sentences = df["TEST_SECTION_ID"] == df.shift_and_fill(1, 0)["TEST_SECTION_ID"]
+        new_sentences = df["TEST_SECTION_ID"] == df["TEST_SECTION_ID"].shift_and_fill(fill_value=0)
     except ColumnNotFoundError:
         new_sentences = pl.Series([False, ] + [True] * (df.shape[0] - 1))
     df = df.select([
         (pl.col("RELEASE_TIME") - pl.col("PRESS_TIME")).alias("HOLD_TIME"),
         pl.when(new_sentences).then(
-            pl.col("KEYCODE").shift_and_fill(1, 0)
+            pl.col("KEYCODE").shift_and_fill(fill_value=0)
         ).otherwise(0).alias("PREV_KEYCODE"),
         pl.when(new_sentences).then(
-            pl.col("PRESS_TIME") - pl.col("PRESS_TIME").shift_and_fill(1, 0)
+            pl.col("PRESS_TIME") - pl.col("PRESS_TIME").shift_and_fill(fill_value=0)
         ).otherwise(0).alias("PRESS_PRESS_TIME"),
         pl.when(new_sentences).then(
-            pl.col("PRESS_TIME") - pl.col("RELEASE_TIME").shift_and_fill(1, 0)
+            pl.col("PRESS_TIME") - pl.col("RELEASE_TIME").shift_and_fill(fill_value=0)
         ).otherwise(0).alias("RELEASE_PRESS_TIME"),
         pl.when(new_sentences).then(
-            pl.col("RELEASE_TIME") - pl.col("RELEASE_TIME").shift_and_fill(1, 0)
+            pl.col("RELEASE_TIME") - pl.col("RELEASE_TIME").shift_and_fill(fill_value=0)
         ).otherwise(0).alias("RELEASE_RELEASE_TIME"),            
         pl.col("*")
     ])
@@ -124,9 +124,9 @@ def read_data_for_participant(participant_id: int,
                               **kwargs):
     global MAIN_DIR
     if not columns_to_read:
-        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), sep="\t", infer_schema_length=10**12, **kwargs)
+        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), separator="\t", infer_schema_length=10**12, **kwargs)
     else:
-        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), sep="\t", columns=columns_to_read, infer_schema_length=10**12, **kwargs)
+        df = pl.read_csv(os.path.join(directory, f"{participant_id}_keystrokes.txt"), separator="\t", columns=columns_to_read, infer_schema_length=10**12, **kwargs)
     if "LETTER" in columns_to_read:
         df = df.with_columns([pl.col("LETTER").str.to_lowercase().alias("LETTER")])
     if preprocess:
