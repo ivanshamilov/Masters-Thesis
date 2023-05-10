@@ -60,14 +60,14 @@ class KeyLogger(object):
     # print(f"The key {key} was released at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
     key = self._parse_key(key)
     self.aligner.append(self.counter[key])
-    self.releases.append([key, time.time()])
+    self.releases.append([key, time.time() * 10**3])
 
   def on_key_press(self, key: Union[KeyCode, Key]) -> None:
     if key == Key.enter:
       return False
     # print(f"The key {key} was pressed at {time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))}")
     key = self._parse_key(key)
-    self.presses.append([key, time.time()])
+    self.presses.append([key, time.time() * 10**3])
     self.curr += 1
     self.counter[key] = self.curr
 
