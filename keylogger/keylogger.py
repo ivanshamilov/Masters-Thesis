@@ -106,6 +106,6 @@ if __name__ == "__main__":
   with open("mappings/key-codes.json", "rb") as f:
       MAPPING = json.load(f)
 
-  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="I am")
+  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="A red ball.")
   keylogger.listen()
   keylogger.to_csv("hello.csv")

@@ -7,6 +7,7 @@ WINDOW_SIZE = 16
 
 def sliding_window(x: torch.Tensor, window_size: int, step_size: int = 1):
     # Slide over data    
+    assert window_size <= x.shape[0], "window size cannot be larger than the dataset!"
     return x.unfold(0, window_size, step_size)
 
 
