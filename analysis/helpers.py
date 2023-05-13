@@ -122,7 +122,7 @@ def read_data_for_participant(participant_id: int,
                               directory=MAIN_DIR,
                               preprocess: bool=True,
                               drop_timestamps: bool=True,
-                              print_info: bool=True,
+                              print_info: bool=False,
                               columns_to_read: List[str]=[],
                               **kwargs):
     global MAIN_DIR
