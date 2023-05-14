@@ -26,14 +26,15 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
 
     # Drop NEW_SENTENCE columns
     df = df.drop("NEW_SENTENCE")
-
     # Split the data by sentences
     for i, j in zip(idxs, idxs[1:]):
         # Slide over one sentence to create windows: [a, b, c, d] -> [[a, b], [b, c], [c, d]]
-        curr_data = sliding_window(torch.Tensor(df[i:j].to_numpy()), window_size=window_size)
-        # Add to other data
-        data = torch.cat((data, curr_data))
-    
+        try: 
+            curr_data = sliding_window(torch.Tensor(df[i:j].to_numpy()), window_size=window_size)
+            # Add to other data
+            data = torch.cat((data, curr_data))
+        except AssertionError:
+            continue
     # Transpose to -> [num windows, window_size, features]
     data = data.transpose(-2, -1)
     X = data[:, :, 0].view(-1, window_size)
@@ -43,14 +44,21 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
     return X, data[:, :, 1:]
 
 
-def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 1000) -> torch.utils.data.DataLoader:
+def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 20000) -> torch.utils.data.DataLoader:
     feature_columns = ["NEW_SENTENCE", "KEYCODE", "HOLD_TIME", "PRESS_PRESS_TIME", "RELEASE_PRESS_TIME", "RELEASE_RELEASE_TIME"]
     X = torch.tensor([], dtype=torch.float32)
     y = torch.tensor([], dtype=torch.float32)
     participants = find_all_participants(path)
     for i, participant in enumerate(participants):
-        df = read_data_for_participant(participant, drop_timestamps=True, columns_to_read=["TEST_SECTION_ID", "KEYCODE", "RELEASE_TIME", "PRESS_TIME"])[feature_columns]
-        X_curr, y_curr = prepare_data(df, window_size)
+        if i % 1000 == 0:
+            print(f"Processed: {i} / {len(participants)}")
+        try:
+            df = read_data_for_participant(participant, path, drop_timestamps=True, columns_to_read=["TEST_SECTION_ID", "KEYCODE", "RELEASE_TIME", "PRESS_TIME"])[feature_columns]
+            if df.shape[0] < 25:
+                continue
+            X_curr, y_curr = prepare_data(df, window_size)
+        except TypeError:
+            continue
         X, y = torch.cat((X, X_curr)), torch.cat((y, y_curr))
         if i == limit - 1:
             break

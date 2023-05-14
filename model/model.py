@@ -24,7 +24,7 @@ evaluation_iters = 500  # -> number of iterations for evaluation process (how ma
 log_to_file = 2 # log output to the file every # epochs
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-batch_size = 64 # (TODO: 128)
+batch_size = 128 # (TODO: 128)
 leaky_relu_slope = 0.1
 # Parameters following https://arxiv.org/pdf/1805.08318.pdf
 generator_lr = 1e-4  # -> generator learning rate
@@ -32,7 +32,7 @@ discriminator_lr = 2e-4 # -> discriminator learning rate
 adam_beta1 = 0 # -> beta1 for AdamW optimizer
 adam_beta2 = 0.9 # -> beta2 (momentum) value for AdamW optimizer
 
-block_size = 16  # -> window size for the dataset (length of the context)
+block_size = 8  # -> window size for the dataset (length of the context)
 latent_dim = 100 # -> size of the latent space
 embedding_dim = 96 # 192 -> embedding dimension for the condition (TODO: 384)
 n_attention_blocks_gen = 6  # -> number of consecutive Self-Attention blocks in generator
@@ -187,9 +187,9 @@ def write_to_file(outfile, data):
 @torch.no_grad()
 def generator_proximity(generator, dataloader):
   generator.eval()
-  
   loss = 0
   for i, (ks_symbols, ks_times) in enumerate(dataloader):
+    ks_times, ks_symbols = ks_times.to(device), ks_symbols.to(device)
     latent_space = torch.randn(ks_symbols.shape[0], latent_dim, device=device)
     generated_out = generator(latent_space, ks_symbols)
     loss += F.mse_loss(input=generated_out, target=ks_times).item()
@@ -206,9 +206,7 @@ def train_step(models, optims, keystrokes, keystroke_times):
   optim_G, optim_D = optims
 
   # 1. Prepare data (set real / fake labels)
-  # real_label, fake_label = 1.0, 0.0
   keystrokes, real_keystroke_times = keystrokes.to(device), keystroke_times.to(device)
-  # label = torch.full((keystrokes.shape[0], 1), real_label, device=device)
   real_label = torch.ones(keystrokes.shape[0], 1, device=device)
   fake_label = torch.zeros(keystrokes.shape[0], 1, device=device)
 
@@ -257,22 +255,24 @@ def train_loop(generator, discriminator, dataloader, device=device):
       out = generator(latent_space, keystroke_symbols)
       write_to_file(f"results/keystroke_{epoch}.txt", out[0].detach().tolist())
 
+  return loss_list_G, loss_list_D
+
 
 if __name__ == "__main__":
-  generator = Generator()
-  discriminator = Discriminator()
-  print(sum(p.numel() for p in generator.parameters())/1e6, 'M parameters')
-  print(sum(p.numel() for p in discriminator.parameters())/1e6, 'M parameters')
-  # dataloader = create_dataloader(path=MAIN_DIR, window_size=block_size, batch_size=batch_size, shuffle=True) 
+  # generator = Generator()
+  # discriminator = Discriminator()
+  # print(sum(p.numel() for p in generator.parameters())/1e6, 'M parameters')
+  # print(sum(p.numel() for p in discriminator.parameters())/1e6, 'M parameters')
+  dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True) 
 
-  dataloader = torch.load("small_data_64.pt")
+  torch.save(dataloader, "data_20000_128.pt")
 
-  train_loop(generator, discriminator, dataloader)
+  # train_loop(generator, discriminator, dataloader)
 
-  for i, (ks, ks_time) in enumerate(dataloader):
-    latent_space = torch.randn(ks.shape[0], latent_dim, device=device)
-    generated_out = generator(latent_space, ks)
-    print(ks_time[1])
-    print("Generated:")
-    print(generated_out[1])
-    break
+  # for i, (ks, ks_time) in enumerate(dataloader):
+  #   latent_space = torch.randn(ks.shape[0], latent_dim, device=device)
+  #   generated_out = generator(latent_space, ks)
+  #   print(ks_time[1])
+  #   print("Generated:")
+  #   print(generated_out[1])
+  #   break

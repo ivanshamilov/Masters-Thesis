@@ -139,6 +139,7 @@ def read_data_for_participant(participant_id: int,
               f"/ {df['TEST_SECTION_ID'].n_unique()} sentences were written correctly",
               f"by the participant {participant_id}")
         
+    df = df.drop_nulls()
     return df
 
 
