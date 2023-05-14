@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 sys.path.append(f"../masters_thesis")
 from analysis.helpers import *
-
+from blocks import *
 
 #================ Variables ================#
 torch.manual_seed(20801)
@@ -35,26 +35,7 @@ vocab_size = max(inner_mapping.values()) + 1 # -> to be used in ks_embedding_tab
 generator_output_dim = 4
 
 
-class EfficientZeroGrad():
-  # Following https://betterprogramming.pub/how-to-make-your-pytorch-code-run-faster-93079f3c1f7b
-  def zero_grad(self):
-    for parameter in self.parameters():
-      parameter.grad = None
-
-  def _init_weights(self, module):
-    if isinstance(module, nn.Linear):
-        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-        if module.bias is not None:
-            torch.nn.init.zeros_(module.bias)
-    elif isinstance(module, nn.Embedding):
-        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
-
 if __name__ == "__main__":
-  # generator = Generator()
-  # discriminator = Discriminator()
-  # print(sum(p.numel() for p in generator.parameters())/1e6, 'M parameters')
-  # print(sum(p.numel() for p in discriminator.parameters())/1e6, 'M parameters')
   dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True) 
 
   torch.save(dataloader, "data_20000_128.pt")
