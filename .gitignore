@@ -133,3 +133,7 @@ dmypy.json
 # Data Folders
 data/
 analysis/vars.py
+results/
+
+# pytorch dataloaders
+*.pt
