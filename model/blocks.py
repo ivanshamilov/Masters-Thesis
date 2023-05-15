@@ -21,7 +21,9 @@ class Eops():
       nn.init.xavier_uniform(module.weight)
 
   def spectral_norm(self, module: nn.Module):
-    pass
+    classname = module.__class__.__name__
+    if classname.find("Linear") != -1 or classname.find("Conv") != -1:
+      module = torch.nn.utils.parametrizations.spectral_norm(module=module)
 
 
 class FullyConnected(nn.Module):
@@ -49,6 +51,22 @@ class FullyConnected(nn.Module):
     return self.ffn(x)
   
 
+class AttentionBlock(nn.Module):
+  def __init__(self, embedding_dim: int, sa_num_heads: int, fc_inner_dim: int, dropout: float = 0.1, lrelu_slope: float = 0.01):
+    super(AttentionBlock, self).__init__()
+    self.sa_block = nn.MultiheadAttention(embed_dim=embedding_dim, num_heads=sa_num_heads, dropout=dropout)
+    self.ln1 = nn.LayerNorm(embedding_dim)
+    self.ffn = FullyConnected(in_dim=embedding_dim, out_dim=embedding_dim, hidden_layers_dim=[fc_inner_dim], lrelu_slope=lrelu_slope)
+    self.ln2 = nn.LayerNorm(embedding_dim)
+
+  def forward(self, x):
+    x = self.ln1(x)
+    x_attn, _ = self.sa_block(query=x, key=x, value=x)
+    x = x + x_attn
+    x = x + self.ffn(self.ln2(x))
+    return x
+
+
 class ConditionEmbedding(nn.Module):
   def __init__(self, vocab_size: int, block_size: int, embedding_dim: int, inner_dim: int, device: torch.device, out_dim: int = 0):
     super(ConditionEmbedding, self).__init__()
@@ -62,7 +80,6 @@ class ConditionEmbedding(nn.Module):
     self.register_buffer("pos_enc", torch.arange(block_size, device=device))
   
   def forward(self, x):
-    batch_dim, time_dim = x.shape
     ks_embd = self.ks_embedding_table_cond(x)  # (batch_dim, time_dim, embedding_dim)
     pos_embd = self.position_embedding_table_cond(self.pos_enc) #  (batch_dim, embedding_dim)
     x = ks_embd + pos_embd #  (batch_dim, time_dim, embedding_dim)
@@ -72,13 +89,13 @@ class ConditionEmbedding(nn.Module):
 
 class CrossAttentionCondition(nn.Module):
   def __init__(self, vocab_size: int, block_size: int, latent_dim: int, embedding_dim: int, inner_dim: int, device: torch.device,
-               ca_num_heads: int = 6, lrelu_slope: float = 0.2, dropout: float = 0.2, out_dim: int = 0):
+               ca_num_heads: int = 6, lrelu_slope: float = 0.2, dropout: float = 0.2, out_dim: int = 0, generator: bool = True):
     super(CrossAttentionCondition, self).__init__()
     if out_dim == 0:
       out_dim = embedding_dim
     self.cond_embd = ConditionEmbedding(vocab_size=vocab_size, block_size=block_size, embedding_dim=embedding_dim, inner_dim=inner_dim,
                                         device=device, out_dim=out_dim)
-    self.latent_fc = nn.Linear(in_features=latent_dim, out_features=block_size * out_dim)
+    self.latent_fc = nn.Linear(in_features=latent_dim, out_features=block_size * out_dim if generator else out_dim)
     self.l_relu = nn.LeakyReLU(lrelu_slope, inplace=True)
     self.cross_attention = nn.MultiheadAttention(embed_dim=out_dim, num_heads=ca_num_heads, dropout=dropout)
     
