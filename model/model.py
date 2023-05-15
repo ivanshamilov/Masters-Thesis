@@ -64,36 +64,41 @@ class Discriminator(nn.Module, Eops):
     self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=lstm_hidden_size, num_layers=2, batch_first=True, dropout=0.15)
     self.sa_block = AttentionBlock(embedding_dim=lstm_hidden_size, sa_num_heads=sa_num_heads / 2, fc_inner_dim=128, dropout=attn_dropout,
                                    lrelu_slope=leaky_relu_slope)
-    self.ffn1 = FullyConnected(in_dim=lstm_hidden_size, out_dim=1, hidden_layers_dim=[128, 256], dropout=ffn_dropout,
+    self.ffn1 = FullyConnected(in_dim=lstm_hidden_size, out_dim=128, hidden_layers_dim=[128, 256], dropout=ffn_dropout,
                                lrelu_slope=leaky_relu_slope)
+    self.bn = nn.BatchNorm1d(block_size)
+    self.disc_head = nn.Linear(in_features=block_size * 128, out_features=1)
     self.sigmoid = nn.Sigmoid()
     self.apply(self.spectral_norm)
 
   def forward(self, keystroke_times, condition_symbols):
+    batch_dim, _ ,  _ = keystroke_times.shape
     x = self.latent_cond_concat(keystroke_times, condition_symbols)
     x, _ = self.lstm(x)
     x = self.ffn1(x)
-    x = self.sigmoid(x)
+    x = self.bn(x)
+    x = x.view(batch_dim, -1)
+    x = self.sigmoid(self.disc_head(x))
     return x
 
 
 if __name__ == "__main__":
   limit = 500
-  dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True, limit=limit) 
-  torch.save(dataloader, f"norm_data_{limit}_{batch_size}.pt")
-  # dataloader = torch.load("norm_data_500_128.pt")
+  # dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True, limit=limit) 
+  # torch.save(dataloader, f"norm_data_{limit}_{batch_size}.pt")
+  dataloader = torch.load("norm_data_500_128.pt")
   # dataloader = torch.load("big_data_10000_128.pt")
-  # generator = Generator()
-  # discriminator = Discriminator()
+  generator = Generator()
+  discriminator = Discriminator()
   # print(sum(p.numel() for p in generator.parameters())/1e6, 'M parameters')
   # print(sum(p.numel() for p in discriminator.parameters())/1e6, 'M parameters')
 
-  # for i, (ks, ks_time) in enumerate(dataloader):
-  #   print(ks.shape, ks_time.shape)
-  #   latent_space = torch.randn(ks.shape[0], latent_dim, device=device)
-  #   generated_out = generator(latent_space, ks)
-  #   print(generated_out)
-  #   print(generated_out.max(), generated_out.min(), generated_out.mean(), generated_out.std())
-  #   # out = discriminator(generated_out, ks)
-  #   # print(out.shape)
-  #   break
+  for i, (ks, ks_time) in enumerate(dataloader):
+    print(ks.shape, ks_time.shape)
+    latent_space = torch.randn(ks.shape[0], latent_dim, device=device)
+    generated_out = generator(latent_space, ks)
+    print(generated_out.shape)
+    # print(generated_out.max(), generated_out.min(), generated_out.mean(), generated_out.std())
+    out = discriminator(generated_out, ks)
+    print(out.shape)
+    break
