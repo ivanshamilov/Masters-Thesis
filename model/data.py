@@ -38,10 +38,18 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
     # Transpose to -> [num windows, window_size, features]
     data = data.transpose(-2, -1)
     X = data[:, :, 0].view(-1, window_size)
+    y = data[:, :, 1:]
+
+    # remove data for first keystrokes of the sequences
+    mask = torch.zeros(*y.shape)
+    mask = mask.index_fill_(1, torch.tensor([0]), 1)
+    mask[:, :, 0] = 0
+    y -= mask * y
+
     # Convert keystrokes to range [0; 100]
     X.apply_(lambda x: mapper.get_mapped_code_from_code(x))
     # Return X, y: X.shape -> [num_windows, window_size, 1], y.shape -> [num_windows, window_size, 4]
-    return X, data[:, :, 1:]
+    return X, y
 
 
 def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 20000) -> torch.utils.data.DataLoader:

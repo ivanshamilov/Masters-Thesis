@@ -19,7 +19,7 @@ torch.manual_seed(20801)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-batch_size = 128 # (TODO: 128)
+batch_size = 128 
 leaky_relu_slope = 0.1
 
 block_size = 16  # -> window size for the dataset (length of the context)
@@ -34,18 +34,30 @@ inner_mapping = Mapper().inner_mapping   # -> used to convert the real ASCII key
 vocab_size = max(inner_mapping.values()) + 1 # -> to be used in ks_embedding_table, equals to 100
 generator_output_dim = 4
 
+class Generator(nn.Module, Eops):
+  def __init__(self):
+    super(Generator, self).__init__()
+    self.latent_cond_concat = CrossAttentionCondition(vocab_size=vocab_size, block_size=block_size, latent_dim=latent_dim,
+                                                      embedding_dim=embedding_dim, inner_dim=128, device=device)
+    
+  def forward(self, latent_space, condition):
+    return self.latent_cond_concat(latent_space, condition)
+
 
 if __name__ == "__main__":
-  dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True) 
+  # limit = 10000
+  # dataloader = create_dataloader(path=BIG_DATA_DIR, window_size=block_size, batch_size=128, shuffle=True, limit=limit) 
+  
+  # torch.save(dataloader, f"big_data_{limit}_{batch_size}.pt")
+  dataloader = torch.load("data_10_128.pt")
+  # generator = Generator()
 
-  torch.save(dataloader, "data_20000_128.pt")
-
-  # train_loop(generator, discriminator, dataloader)
-
-  # for i, (ks, ks_time) in enumerate(dataloader):
+  for i, (ks, ks_time) in enumerate(dataloader):
+    single_ks, single_ks_time = ks[0:5], ks_time[0:5]
+    print(single_ks, single_ks_time)
+    break
+    # print(ks.shape, ks_time.shape)
   #   latent_space = torch.randn(ks.shape[0], latent_dim, device=device)
   #   generated_out = generator(latent_space, ks)
-  #   print(ks_time[1])
-  #   print("Generated:")
-  #   print(generated_out[1])
+  #   print(generated_out.shape)
   #   break
