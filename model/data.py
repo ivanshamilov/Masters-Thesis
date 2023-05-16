@@ -54,7 +54,7 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
     return X, y
 
 
-def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 20000) -> torch.utils.data.DataLoader:
+def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 20000, norm: bool = True) -> torch.utils.data.DataLoader:
     feature_columns = ["NEW_SENTENCE", "KEYCODE", "HOLD_TIME", "PRESS_PRESS_TIME", "RELEASE_PRESS_TIME", "RELEASE_RELEASE_TIME"]
     max_time = 3500 # 3.5 seconds in ms
     min_time = -1000 # 1 seconds in ms
@@ -78,11 +78,12 @@ def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: boo
         if i == limit - 1:
             break
             
-    min_y = y.min()
-    max_y = y.max()
-    y_norm = (y - min_y) / (max_y - min_y)  # normalize to [0; 1]
+    if norm:
+        min_y = y.min()
+        max_y = y.max()
+        y = (y - min_y) / (max_y - min_y)  # normalize to [0; 1]
 
-    dataset = torch.utils.data.TensorDataset(X.int(), y_norm)
+    dataset = torch.utils.data.TensorDataset(X.int(), y)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
     return dataloader
