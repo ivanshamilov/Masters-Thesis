@@ -56,6 +56,10 @@ def evaluate_model(generator, discriminator, dataloader):
   return loss, real_accuracy, fake_accuracy
 
 
+def reconstruction_loss(input, target):
+  return F.mse_loss(input=input, target=target)
+
+
 def calculate_loss(input, target):
   return F.binary_cross_entropy(input, target)
 
@@ -65,7 +69,7 @@ def write_to_file(outfile, data):
     file.writelines('\t'.join(str(j) for j in i) + '\n' for i in data)
 
 
-def train_step(models, optims, keystrokes, keystroke_times):
+def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
   generator, discriminator = models
   optim_G, optim_D = optims
 
@@ -81,19 +85,21 @@ def train_step(models, optims, keystrokes, keystroke_times):
   generated_keystroke_times = generator(latent_space, keystrokes)
   fake_loss_D = calculate_loss(discriminator(generated_keystroke_times.detach(), keystrokes), fake_label)
   total_loss_D = (real_loss_D + fake_loss_D) / 2
+  total_loss_D = total_loss_D + rl_loss_lambda * reconstruction_loss(generated_keystroke_times, real_keystroke_times)
   total_loss_D.backward()
   optim_D.step()
 
   # 3. Train the generator
   generator.zero_grad()
   loss_G = calculate_loss(discriminator(generated_keystroke_times, keystrokes), real_label)
+  loss_G = loss_G + + rl_loss_lambda * reconstruction_loss(generated_keystroke_times, real_keystroke_times)
   loss_G.backward()
   optim_G.step()
 
   return loss_G, total_loss_D
 
 
-def train_loop(generator, discriminator, train_dataloader, validation_dataloader, device=device):
+def train_loop(generator, discriminator, train_dataloader, validation_dataloader, device=device, rl_loss_lambda=5):
   loss_list_D, loss_list_G = [], []
   generator, discriminator = generator.to(device), discriminator.to(device)
   optim_G = torch.optim.AdamW(generator.parameters(), lr=generator_lr, betas=(adam_beta1, adam_beta2))
@@ -103,7 +109,7 @@ def train_loop(generator, discriminator, train_dataloader, validation_dataloader
     curr_loss_G, curr_loss_D = 0, 0
     for index, (keystroke_symbols, keystroke_times) in enumerate(train_dataloader):
       loss_G, loss_D = train_step(models=(generator, discriminator), optims=(optim_G, optim_D), 
-                                  keystrokes=keystroke_symbols, keystroke_times=keystroke_times)
+                                  keystrokes=keystroke_symbols, keystroke_times=keystroke_times, rl_loss_lambda=rl_loss_lambda)
       curr_loss_G += loss_G.item()
       curr_loss_D += loss_D.item()
 

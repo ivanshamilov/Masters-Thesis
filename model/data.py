@@ -56,9 +56,9 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
 
 def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 20000, norm: bool = True) -> torch.utils.data.DataLoader:
     feature_columns = ["NEW_SENTENCE", "KEYCODE", "HOLD_TIME", "PRESS_PRESS_TIME", "RELEASE_PRESS_TIME", "RELEASE_RELEASE_TIME"]
-    max_time = 3500 # 3.5 seconds in ms
-    min_time = -1000 # 1 seconds in ms
-    df_size_lim = 20
+    max_time = 2000 # 2 seconds in ms
+    min_time = -1500 # -1.5 seconds in ms
+    df_size_lim = 25
     X = torch.tensor([], dtype=torch.float32)
     y = torch.tensor([], dtype=torch.float32)
     participants = find_all_participants(path)
@@ -67,6 +67,7 @@ def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: boo
             print(f"Processed: {i} / {len(participants)}")
         try:
             df = read_data_for_participant(participant, path, drop_timestamps=True, columns_to_read=["TEST_SECTION_ID", "KEYCODE", "RELEASE_TIME", "PRESS_TIME"])[feature_columns]
+            df = df[["NEW_SENTENCE", "KEYCODE", "HOLD_TIME", "RELEASE_PRESS_TIME"]]
             if df.shape[0] < df_size_lim:
                 continue
             if (df.to_numpy().max() > max_time) or (df.to_numpy().min() < min_time):
@@ -77,7 +78,8 @@ def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: boo
         X, y = torch.cat((X, X_curr)), torch.cat((y, y_curr))
         if i == limit - 1:
             break
-            
+
+    y = y * 10 ** -3   # convert keystroke times to seconds
     if norm:
         min_y = y.min()
         max_y = y.max()
@@ -85,5 +87,7 @@ def create_dataloader(path: str, window_size: int, batch_size: int, shuffle: boo
 
     dataset = torch.utils.data.TensorDataset(X.int(), y)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+
+    print(len(dataloader), len(dataloader.dataset))
 
     return dataloader
