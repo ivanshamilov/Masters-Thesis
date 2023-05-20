@@ -3,20 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tqdm import tqdm
+from scipy.stats import wasserstein_distance
+
 
 #================ Variables ================#
-num_epochs = 200    # -> number of time the model will see whole dataset
-epoch_log = 5 # -> prints per epoch 
-evaluation_interval = 25 # -> evaluate model every 'AssertionErrorevaluation_interval' epochs
+num_epochs = 1000    # -> number of time the model will see whole dataset
+epoch_log = 1 # -> prints per epoch 
+evaluation_interval = 25 # -> evaluate model every 'revaluation_interval' epochs
 evaluation_steps = 10  # -> number of iterations for evaluation process (how many batches will be used)
-log_to_file = 2 # log output to the file every # epochs
 
-# Parameters following https://arxiv.org/pdf/1805.08318.pdf
-generator_lr = 2e-5  # -> generator learning rate
-discriminator_lr = 5e-5 # -> discriminator learning rate
-adam_beta1 = 0 # -> beta1 for AdamW optimizer
-adam_beta2 = 0.9 # -> beta2 (momentum) value for AdamW optimizer
-latent_dim = 100
+generator_lr = 3e-4  # -> generator learning rate
+discriminator_lr = 4e-4 # -> discriminator learning rate
+adam_beta1 = 0.5 # -> beta1 for AdamW optimizer
+adam_beta2 = 0.999 # -> beta2 (momentum) value for AdamW optimizer
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -26,13 +25,15 @@ def evaluate_model(generator, discriminator, dataloader):
   generator.eval()
   discriminator.eval()
   real_accuracy, fake_accuracy = 0, 0
-  loss = 0
+  reconstruction_loss = 0
+  wasserstein_distance = 0
 
   for i, (ks_symbols, ks_times) in enumerate(dataloader):
     ks_times, ks_symbols = ks_times.to(device), ks_symbols.to(device)
     latent_space = torch.randn(ks_symbols.shape[0], latent_dim, device=device)
     generated_out = generator(latent_space, ks_symbols)
-    loss += F.mse_loss(input=generated_out, target=ks_times).item()
+    reconstruction_loss += F.mse_loss(input=generated_out, target=ks_times).item()
+    wasserstein_distance += wasserstein(generated_out.detach().cpu().numpy(), ks_times.detach().cpu().numpy())
 
     labels = torch.ones(ks_symbols.shape[0], 1, device=device)
     disc_real_output = discriminator(ks_times, ks_symbols)
@@ -46,27 +47,35 @@ def evaluate_model(generator, discriminator, dataloader):
     if i == evaluation_steps - 1:
       break
 
-  loss /= evaluation_steps
+  reconstruction_loss /= evaluation_steps
+  wasserstein_distance /= evaluation_steps
   real_accuracy /= evaluation_steps
   fake_accuracy /= evaluation_steps
 
   discriminator.train()
   generator.train()
 
-  return loss, real_accuracy, fake_accuracy
+  return reconstruction_loss, wasserstein_distance, real_accuracy, fake_accuracy
 
 
-def reconstruction_loss(input, target):
-  return F.mse_loss(input=input, target=target)
+def wasserstein(generated_dist, actual_dist):
+  """
+  It will help with monitoring the model's performance. 
+  Since the main goal of the model is to preserve the inner patterns in user's keystrokes - it might not be enought to just use 
+  the reconstruction loss to judge whether the model performs good or not. Sometimes, the model can generate proper distribution 
+  of the data, but scaled (either up or down). 
+  """
+  # Standardize generated distribution to the actual one
+  generated_scaled = (generated_dist - actual_dist.mean()) / actual_dist.std()
+  return wasserstein_distance(actual_dist, generated_scaled)
 
 
 def calculate_loss(input, target):
   return F.binary_cross_entropy(input, target)
 
 
-def write_to_file(outfile, data):
-  with open(outfile, 'w') as file:
-    file.writelines('\t'.join(str(j) for j in i) + '\n' for i in data)
+def reconstruction_loss(input, target):
+  return F.mse_loss(input=input, target=target).item()
 
 
 def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
@@ -92,15 +101,16 @@ def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
   # 3. Train the generator
   generator.zero_grad()
   loss_G = calculate_loss(discriminator(generated_keystroke_times, keystrokes), real_label)
-  loss_G = loss_G + + rl_loss_lambda * reconstruction_loss(generated_keystroke_times, real_keystroke_times)
+  loss_G = loss_G + rl_loss_lambda * reconstruction_loss(generated_keystroke_times, real_keystroke_times)
   loss_G.backward()
   optim_G.step()
 
   return loss_G, total_loss_D
 
 
-def train_loop(generator, discriminator, train_dataloader, validation_dataloader, device=device, rl_loss_lambda=5):
+def train_loop(generator, discriminator, train_dataloader, validation_dataloader, device=device, rl_loss_lambda=5, verbose=20):
   loss_list_D, loss_list_G = [], []
+  real_accuracies, fake_accuracies, reconstruction_losses, ws_distances = [], [], [], [] 
   generator, discriminator = generator.to(device), discriminator.to(device)
   optim_G = torch.optim.AdamW(generator.parameters(), lr=generator_lr, betas=(adam_beta1, adam_beta2))
   optim_D = torch.optim.AdamW(discriminator.parameters(), lr=discriminator_lr, betas=(adam_beta1, adam_beta2))
@@ -112,17 +122,22 @@ def train_loop(generator, discriminator, train_dataloader, validation_dataloader
                                   keystrokes=keystroke_symbols, keystroke_times=keystroke_times, rl_loss_lambda=rl_loss_lambda)
       curr_loss_G += loss_G.item()
       curr_loss_D += loss_D.item()
-
-      if index % (len(train_dataloader) // epoch_log) == 0:
-        print(f"[Epoch: {epoch} / {num_epochs}][{index:4d}/{len(train_dataloader):4d}] Generator loss: {loss_G:2.5f}, discriminator loss: {loss_D:2.5f}")
+      # if index % (len(train_dataloader) // epoch_log) == 0:
+      #   print(f"[Epoch: {epoch} / {num_epochs}][{index:4d}/{len(train_dataloader):4d}] Generator loss: {loss_G:2.5f}, discriminator loss: {loss_D:2.5f}")
     
-    if epoch % evaluation_interval:
-      loss, real_accuracy, fake_accuracy = evaluate_model(generator, discriminator, validation_dataloader)
-      print(f"MSE loss: {loss:2.5f}, Real accuracy: {real_accuracy:2.5f}, Fake accuracy: {fake_accuracy:2.5f}")  
+    if epoch % evaluation_interval == 0:
+      loss, wasserstein_distance, real_accuracy, fake_accuracy = evaluate_model(generator, discriminator, validation_dataloader)
+      real_accuracies.append(real_accuracy)
+      fake_accuracy.append(fake_accuracy)
+      reconstruction_losses.append(loss)
+      ws_distances.append(wasserstein_distance)
+      print(f"MSE loss: {loss:2.5f}, WS distance: {wasserstein_distance:2.5f}, Real accuracy: {real_accuracy:2.5f}, Fake accuracy: {fake_accuracy:2.5f}")
+
     curr_loss_G /= len(train_dataloader)
     curr_loss_D /= len(train_dataloader)
     loss_list_D.append(curr_loss_D)
     loss_list_G.append(curr_loss_G)
-    print(f"###### [Epoch: {epoch} / {num_epochs}] Epoch generator loss: {curr_loss_G:2.5f}, Epoch discriminator loss: {curr_loss_D:2.5f}")
+    if epoch % verbose == 0:
+      print(f"###### [Epoch: {epoch} / {num_epochs}] Epoch generator loss: {curr_loss_G:2.5f}, Epoch discriminator loss: {curr_loss_D:2.5f}")
 
-  return loss_list_G, loss_list_D
+  return loss_list_G, loss_list_D, reconstruction_losses, ws_distances, real_accuracies, fake_accuracies
