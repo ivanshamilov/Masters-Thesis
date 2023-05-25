@@ -12,7 +12,6 @@ from utils import *
 #================ Variables ================#
 torch.manual_seed(20801)
 
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 batch_size = 128 
 leaky_relu_slope = 0.05
@@ -25,6 +24,7 @@ inner_mapping = Mapper().inner_mapping   # -> used to convert the real ASCII key
 vocab_size = max(inner_mapping.values()) + 1 # -> to be used in ks_embedding_table, equals to 100
 generator_output_dim = 4
 
+#================ Models ================#
 
 class Generator(nn.Module, Eops):
   def __init__(self):
@@ -158,23 +158,34 @@ class TypeNet(nn.Module, Eops):
     x, _ = self.lstm_forward(self.lstm2, x)
     return x
 
-  def forward(self, x, calculate_loss: bool = False):
+  def forward(self, x, calculate_loss: bool = True):
     """
     Triplet loss will be used -> the model will return 3 outputs
     A triplet is composed by three different samples from two different classes: 
     Anchor (A) and Positive (P) are different keystroke sequences from the same subject, 
     and Negative (N) is a keystroke sequence from a different subject
     """
-    data1, data2, data3 = torch.split(tensor=x, split_size_or_sections=16, dim=1)
+    loss_dict = { "loss": None }
+    data1, data2, data3 = torch.split(tensor=x, split_size_or_sections=self.window_size, dim=1)
 
     anchor = self.single_forward(data1)
     positive = self.single_forward(data2)
     negative = self.single_forward(data3)
 
-    if not calculate_loss:
-      loss = None
-    else:
+    if calculate_loss:
       criterion = TripletLoss(margin=1.5)
-      loss = criterion(anchor=anchor, positive=positive, negative=negative)
+      ap_distance, an_distance, loss = criterion(anchor=anchor, positive=positive, negative=negative)
+      loss_dict["loss"] = loss
+      loss_dict["ap_distance"] = ap_distance
+      loss_dict["an_distance"] = an_distance
+      # difference should be > 0 (Anchor-Negative distance should be greater than Anchor-Positive distance)
+      loss_dict["ap_an_diff"] = loss_dict["an_distance"] - loss_dict["ap_distance"]  
 
-    return anchor, positive, negative, loss
+    return anchor, positive, negative, loss_dict
+
+
+if __name__ == "__main__":
+  rand_data = torch.randn(batch_size, 48, 3)
+  typenet = TypeNet(window_size=16, interlayer_dropout=.5, recurrent_dropout=.2)
+  _, _, _, loss_dict = typenet(rand_data)
+  loss_dict["loss"].backward()

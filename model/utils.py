@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import List
+from typing import List, Tuple
 
 
 class Eops():
@@ -34,11 +34,13 @@ class TripletLoss(nn.Module):
     super(TripletLoss, self).__init__()
     self.register_buffer("margin", torch.tensor(margin))
 
-  def forward(self, anchor, positive, negative):
+  def forward(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> Tuple[torch.Tensor]:
     """
     Goal: Anchor / Positive -> minimize distance, Anchor / Negative -> maximize distance 
+    Implementation available in PyTorch (does not include squaring the distances): nn.TripletMarginLoss(1.5)(anchor, positive, negative).
     """
-    euclidean_distance_positive = F.pairwise_distance(anchor, positive, keepdim=True)
-    euclidean_distance_negative = F.pairwise_distance(anchor, negative, keepdim=True)
+    euclidean_distance_positive = torch.mean(F.pairwise_distance(anchor, positive, keepdim=True), dim=1)
+    euclidean_distance_negative = torch.mean(F.pairwise_distance(anchor, negative, keepdim=True), dim=1)
+    loss = torch.mean(torch.relu(torch.pow(euclidean_distance_positive, 2) - torch.pow(euclidean_distance_negative, 2) + self.margin))
 
-    return torch.mean(torch.relu(torch.pow(euclidean_distance_positive, 2) - torch.pow(euclidean_distance_negative, 2) + self.margin))
+    return euclidean_distance_positive, euclidean_distance_negative, loss

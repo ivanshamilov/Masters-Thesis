@@ -4,10 +4,11 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 
-
 #================ Variables ================#
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+batch_size = 128
 num_epochs = 500    # -> number of time the model will see whole dataset
 epoch_log = 1 # -> prints per epoch 
 evaluation_interval = 25 # -> evaluate model every 'revaluation_interval' epochs
@@ -19,6 +20,7 @@ adam_beta1 = 0.5 # -> beta1 for AdamW optimizer
 adam_beta2 = 0.999 # -> beta2 (momentum) value for AdamW optimizer
 latent_dim = 500
 
+#================ Methods ================#
 
 @torch.no_grad()
 def evaluate_model(generator, discriminator, dataloader):
