@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data import *
 
-sys.path.append(f"../masters_thesis")
+sys.path.append(f"../../masters_thesis")
 from analysis.helpers import *
-from utils import *
+from model.utils import *
 
 #================ Variables ================#
 torch.manual_seed(20801)
@@ -120,72 +120,3 @@ class Discriminator(nn.Module, Eops):
 
     return self.sigmoid(x)
   
-
-class TypeNet(nn.Module, Eops):
-  """
-  Implementation of the TypeNet with a Triplet Loss (https://arxiv.org/pdf/2101.05570.pdf)
-  """
-  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float):
-    super(TypeNet, self).__init__()
-    # input size -> [batch_size, 48 (3 time series with the length of window_size), 3 features (keycode, HL, IKI)]
-    self.bn1 = nn.BatchNorm1d(window_size)
-    self.register_buffer("recurrent_dropout", torch.tensor(recurrent_dropout))
-    self.register_buffer("window_size", torch.tensor(window_size))
-    self.lstm1 = nn.LSTM(input_size=3, hidden_size=128, num_layers=1, batch_first=True)
-    self.interlayer_dropout = nn.Dropout(p=interlayer_dropout)
-    self.bn2 = nn.BatchNorm1d(128)
-    self.lstm2 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True)
-    print(self.num_params())
-
-  def lstm_forward(self, layer, x):
-    _, time_steps, _ = x.size()
-    hx = torch.randn(1, 128)
-    cx = torch.randn(1, 128)
-    output = []
-    for i in range(time_steps):
-      out, (hx, cx) = layer(x[:, i], (hx, cx))
-      hx, cx = F.dropout(hx, p=self.recurrent_dropout), F.dropout(cx, p=self.recurrent_dropout)  # recurrent dropout
-      output.append(out)
-    
-    output = torch.stack(output, dim=0)
-    return output, (hx, cx)
-
-  def single_forward(self, x):
-    x = self.bn1(x)
-    x, _ = self.lstm_forward(self.lstm1, x)
-    x = self.interlayer_dropout(x)
-    x = self.bn2(x)
-    x, _ = self.lstm_forward(self.lstm2, x)
-    return x
-
-  def forward(self, x, calculate_loss: bool = True):
-    """
-    Triplet loss will be used -> the model will return 3 outputs
-    A triplet is composed by three different samples from two different classes: 
-    Anchor (A) and Positive (P) are different keystroke sequences from the same subject, 
-    and Negative (N) is a keystroke sequence from a different subject
-    """
-    loss_dict = { "loss": None }
-    data1, data2, data3 = torch.split(tensor=x, split_size_or_sections=self.window_size, dim=1)
-
-    anchor = self.single_forward(data1)
-    positive = self.single_forward(data2)
-    negative = self.single_forward(data3)
-
-    if calculate_loss:
-      criterion = TripletLoss(margin=1.5)
-      ap_distance, an_distance, loss = criterion(anchor=anchor, positive=positive, negative=negative)
-      loss_dict["loss"] = loss
-      loss_dict["ap_distance"] = ap_distance
-      loss_dict["an_distance"] = an_distance
-      # difference should be > 0 (Anchor-Negative distance should be greater than Anchor-Positive distance)
-      loss_dict["ap_an_diff"] = loss_dict["an_distance"] - loss_dict["ap_distance"]  
-
-    return anchor, positive, negative, loss_dict
-
-
-if __name__ == "__main__":
-  rand_data = torch.randn(batch_size, 48, 3)
-  typenet = TypeNet(window_size=16, interlayer_dropout=.5, recurrent_dropout=.2)
-  _, _, _, loss_dict = typenet(rand_data)
-  loss_dict["loss"].backward()

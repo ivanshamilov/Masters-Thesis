@@ -34,13 +34,20 @@ class TripletLoss(nn.Module):
     super(TripletLoss, self).__init__()
     self.register_buffer("margin", torch.tensor(margin))
 
-  def forward(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor) -> Tuple[torch.Tensor]:
+  def forward(self, anchor: torch.Tensor, positive: torch.Tensor, negative: torch.Tensor = None) -> Tuple[torch.Tensor]:
     """
     Goal: Anchor / Positive -> minimize distance, Anchor / Negative -> maximize distance 
     Implementation available in PyTorch (does not include squaring the distances): nn.TripletMarginLoss(1.5)(anchor, positive, negative).
     """
+    loss_dict = { "loss": None }
     euclidean_distance_positive = torch.mean(F.pairwise_distance(anchor, positive, keepdim=True), dim=1)
-    euclidean_distance_negative = torch.mean(F.pairwise_distance(anchor, negative, keepdim=True), dim=1)
-    loss = torch.mean(torch.relu(torch.pow(euclidean_distance_positive, 2) - torch.pow(euclidean_distance_negative, 2) + self.margin))
+    loss_dict["ap_distance"] = euclidean_distance_positive
+    if negative is not None:
+      euclidean_distance_negative = torch.mean(F.pairwise_distance(anchor, negative, keepdim=True), dim=1)
+      loss = torch.mean(torch.relu(torch.pow(euclidean_distance_positive, 2) - torch.pow(euclidean_distance_negative, 2) + self.margin))
+      loss_dict["loss"] = loss
+      loss_dict["an_distance"] = euclidean_distance_negative
+      # difference should be > 0 (Anchor-Negative distance should be greater than Anchor-Positive distance)
+      loss_dict["an_ap_diff"] = loss_dict["an_distance"] - loss_dict["ap_distance"]
 
-    return euclidean_distance_positive, euclidean_distance_negative, loss
+    return loss_dict
