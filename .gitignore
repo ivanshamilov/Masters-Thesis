@@ -136,4 +136,4 @@ analysis/vars.py
 results/
 
 # pytorch dataloaders
-*.pt
+./*.pt
