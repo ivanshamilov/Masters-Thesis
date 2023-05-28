@@ -9,13 +9,13 @@ from tqdm import tqdm
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 batch_size = 128
-num_epochs = 500    # -> number of time the model will see whole dataset
-epoch_log = 2
+num_epochs = 100  
+epoch_log = 1
 
 window_size = 16
-learning_rate = 3e-4  # -> learning rate
-adam_beta1 = 0.5 # -> beta1 for AdamW optimizer
-adam_beta2 = 0.999 # -> beta2 (momentum) value for AdamW optimizer
+learning_rate = 1e-4
+adam_beta1 = 0.9 
+adam_beta2 = 0.999
 
 #================ Methods ================#
 
@@ -25,7 +25,7 @@ def evaluate_model(model, dataloader):
     loss, ap_distance, an_distance, an_ap_diff = 0, 0, 0, 0
 
     for data in dataloader:
-        data = data[0].to(device)
+        data = data.to(device)
         anchor, positive, negative = torch.split(data, window_size, dim=1)
         _, _, _, loss_dict = model(anchor=anchor, positive=positive, negative=negative, calculate_loss=True)    
 
@@ -53,9 +53,7 @@ def train_loop(model, train_dataloader, validation_dataloader, device=device):
     for epoch in tqdm(range(1, num_epochs + 1)):
         epoch_loss, epoch_ap_distance, epoch_an_distance, epoch_an_ap_diff = 0, 0, 0, 0
         for index, data in enumerate(train_dataloader):
-            # if data[0].shape[0] < batch_size:
-            #     continue
-            data = data[0].to(device)
+            data = data.to(device)
             model.zero_grad()
             anchor, positive, negative = torch.split(data, window_size, dim=1)
             _, _, _, loss_dict = model(anchor=anchor, positive=positive, negative=negative, calculate_loss=True)
@@ -92,7 +90,3 @@ def train_loop(model, train_dataloader, validation_dataloader, device=device):
         print(f"###### [Epoch: {epoch} / {num_epochs}] Valid: Epoch loss: {val_loss:2.5f}, Epoch ANP difference: {val_an_ap_diff:3.5f}")
       
     return train_loss_list, train_ap_list, train_an_list, train_an_ap_diff_list, val_loss_list, val_ap_list, val_an_list, val_an_ap_diff_list
-
-
-
-

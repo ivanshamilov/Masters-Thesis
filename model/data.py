@@ -56,7 +56,7 @@ def prepare_data(df: pl.DataFrame, window_size: int) -> Tuple[torch.Tensor]:
 
 
 class Dataset():
-    def __init__(self, path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 1000, norm: bool = True):
+    def __init__(self, path: str, window_size: int, batch_size: int, shuffle: bool = True, limit: int = 1000, norm: bool = True, train_size: float = 0.8):
         self.path = path
         self.window_size = window_size
         self.batch_size = batch_size
@@ -68,6 +68,9 @@ class Dataset():
         self.min_time = -1500
         self.df_size_lim = 25
         self.participants = find_all_participants(self.path)
+        self.train_size = train_size
+        self.valid_size = (1 - self.train_size) / 2
+        self.test_size =  (1 - self.train_size) / 2
 
     def data_for_participant(self, participant):
         return read_data_for_participant(participant, self.path, drop_timestamps=True, 
@@ -159,10 +162,15 @@ class Dataset():
         if self.norm:
             X, y = self._norm_data(X, y)
 
-        data = torch.cat((X.view(*X.shape, 1), y), dim=-1)  # keycodes are also the input features for TypeNet
+        dataset = torch.cat((X.view(*X.shape, 1), y), dim=-1)  # keycodes are also the input features for TypeNet
 
-        dataset = torch.utils.data.TensorDataset(data)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset=dataset, lengths=[self.train_size, self.valid_size, self.test_size])
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+        valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
 
-        print(f"Number of batches: {len(dataloader)}, Number of instances: {len(dataloader.dataset)}")
-        return dataloader
+        print(f"Number of batches in train loader: {len(train_dataloader)}, Number of instances in train loader: {len(train_dataloader.dataset)}")
+        print(f"Number of batches in valid loader: {len(valid_dataloader)}, Number of instances in valid loader: {len(valid_dataloader.dataset)}")
+        print(f"Number of batches in test loader: {len(test_dataloader)}, Number of instances in test loader: {len(test_dataloader.dataset)}")
+
+        return train_dataloader, valid_dataloader, test_dataloader

@@ -22,7 +22,7 @@ embedding_dim = 144 # embedding dimension for the condition
 ffn_dropout = 0.2 # -> dropout for feed-forward networks
 inner_mapping = Mapper().inner_mapping   # -> used to convert the real ASCII key symbols to range [0; 100] 
 vocab_size = max(inner_mapping.values()) + 1 # -> to be used in ks_embedding_table, equals to 100
-generator_output_dim = 4
+generator_output_dim = 2
 
 #================ Models ================#
 

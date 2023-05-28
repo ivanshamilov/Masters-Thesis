@@ -27,6 +27,10 @@ class Eops():
 
   def num_params(self):
     return f"{self.__class__.__name__}: {sum(p.numel() for p in self.parameters())/1e6} M parameters"
+  
+  def load_pretrained(self, filepath, device="cpu"):
+    print(f"Loading weights for {self.__class__.__name__} from {filepath}")
+    print(self.load_state_dict(torch.load(filepath, map_location=torch.device(device))))
 
 
 class TripletLoss(nn.Module):
