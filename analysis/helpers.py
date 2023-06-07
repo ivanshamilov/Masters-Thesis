@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../../masters_thesis")
+
 import os
 import re 
 import json 
@@ -6,7 +9,7 @@ from pathlib import Path
 from typing import Union, List
 
 import polars as pl
-from polars.exceptions import ColumnNotFoundError, ComputeError
+from polars.exceptions import ColumnNotFoundError
 
 from .vars import ROOT_DIR
 

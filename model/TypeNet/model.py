@@ -41,8 +41,9 @@ class TypeNet(nn.Module, Eops):
     x = self.bn1(x)
     x, _ = self.lstm_forward(self.lstm1, x)
     x = self.interlayer_dropout(x)
+    x = x.permute(0, 2, 1)
     x = self.bn2(x)
-    x, _ = self.lstm_forward(self.lstm2, x)
+    x, _ = self.lstm_forward(self.lstm2, x.permute(0, 2, 1))
     return x
 
   def forward(self, anchor, positive, negative = None, calculate_loss: bool = True):

@@ -137,3 +137,6 @@ results/
 
 # pytorch dataloaders
 ./*.pt
+
+# test notebooks
+notebooks/

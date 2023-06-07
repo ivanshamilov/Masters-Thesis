@@ -76,11 +76,12 @@ class Dataset():
         return read_data_for_participant(participant, self.path, drop_timestamps=True, 
                                          columns_to_read=["TEST_SECTION_ID", "KEYCODE", "RELEASE_TIME", "PRESS_TIME"])[self.feature_columns]  
     
-    def _norm_data(self, X, y):
-        X /= max(Mapper().inner_mapping.values())
+    def _norm_data(self, X, y, norm_X: bool = True):
+        if norm_X:
+            X /= max(Mapper().inner_mapping.values())
         y = y * 10 ** -3   # convert keystroke times to seconds
-        min_y = y.min()
-        max_y = y.max()
+        min_y = self.min_time * 10 ** -3
+        max_y = self.max_time * 10 ** -3
         print(f"Min y: {min_y}, Max y: {max_y}")
         y = (y - min_y) / (max_y - min_y)  # normalize to [0; 1]
 
@@ -110,12 +111,12 @@ class Dataset():
             return False
         return True
 
-    def create_dataset(self):
+    def create_dataset(self, norm_X: bool = False, starting_from: int = 0):
         X = torch.tensor([], dtype=torch.float32)
         y = torch.tensor([], dtype=torch.float32)
         i = 0 
 
-        for participant in self.participants:
+        for participant in self.participants[starting_from:]:
             try:
                 df = self.data_for_participant(participant)
                 if not self._df_sanity(df):
@@ -129,20 +130,19 @@ class Dataset():
                 break
         
         if self.norm:
-            X, y = self._norm_data(X, y)
+            X, y = self._norm_data(X, y, norm_X = False)
         
         dataset = torch.utils.data.TensorDataset(X.int(), y)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=self.shuffle)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
 
         print(f"Number of batches: {len(dataloader)}, Number of instances: {len(dataloader.dataset)}")
         return dataloader
 
-    def create_triplet_dataset(self):
+    def create_triplet_dataset(self, starting_from: int = 0):
         X = torch.tensor([], dtype=torch.float32)
         y = torch.tensor([], dtype=torch.float32)
-        data = torch.tensor([], dtype=torch.float32)
         i = 0
-        for participant in self.participants:
+        for participant in self.participants[starting_from:]:
             main_participant = self.data_for_participant(participant)
             if not self._df_sanity(main_participant):
                 continue
