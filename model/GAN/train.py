@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tqdm import tqdm
+from typing import Union, Tuple
 
 #================ Variables ================#
 
@@ -23,7 +24,7 @@ latent_dim = 500
 #================ Methods ================#
 
 @torch.no_grad()
-def evaluate_model(generator, discriminator, dataloader):
+def evaluate_model(generator: nn.Module, discriminator: nn.Module, dataloader: torch.utils.data.DataLoader):
   generator.eval()
   discriminator.eval()
   real_accuracy, fake_accuracy = 0, 0
@@ -60,21 +61,23 @@ def evaluate_model(generator, discriminator, dataloader):
   return reconstruction_loss, kl_div, real_accuracy, fake_accuracy
 
 
-def distribution_similarity(generated_dist, actual_dist):
+def distribution_similarity(generated_dist: torch.Tensor, actual_dist: torch.Tensor):
   generated_scaled = (generated_dist - actual_dist.mean()) / actual_dist.std()  # if similar to actual -> result should be close to the normal one 
   kl_loss = torch.log(generated_scaled.std()) + (1 + torch.square(generated_scaled.mean())) / (2 * torch.square(generated_scaled.std())) - 0.5 # compare with the normal one 
   return kl_loss
 
 
-def calculate_loss(input, target):
+def calculate_loss(input: torch.Tensor, target: torch.Tensor):
   return F.binary_cross_entropy(input, target)
 
 
-def reconstruction_loss(input, target):
+def reconstruction_loss(input: torch.Tensor, target: torch.Tensor):
   return F.mse_loss(input=input, target=target).item()
 
 
-def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
+def train_step(models: Tuple[nn.Module], optims: Tuple[torch.optim.Optimizer], keystrokes: torch.Tensor, 
+               keystroke_times: torch.Tensor, rl_loss_lambda: float):
+
   generator, discriminator = models
   optim_G, optim_D = optims
 
@@ -102,28 +105,36 @@ def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
   loss_G.backward()
   optim_G.step()
 
-  return loss_G, total_loss_D, mse_loss
+  kl_div = distribution_similarity(generated_keystroke_times.detach(), keystroke_times.detach()).item()
+
+  return loss_G, total_loss_D, mse_loss, kl_div
 
 
-def train_loop(generator, discriminator, train_dataloader, validation_dataloader, device=device, rl_loss_lambda=5, verbose=10):
-  loss_list_D, loss_list_G, mse_losses = [], [], []
+def train_loop(generator: nn.Module, discriminator: nn.Module, train_dataloader: torch.utils.data.DataLoader, 
+               validation_dataloader: torch.utils.data.DataLoader, num_epochs: int = num_epochs, generator_lr: float = generator_lr, 
+               discriminator_lr: float = discriminator_lr, device: Union[str, torch.device] = device, rl_loss_lambda: float = 5, 
+               verbose: int = 10, output: bool = True):
+  
+  loss_list_D, loss_list_G, mse_losses, train_kl_divs = [], [], [], []
   real_accuracies, fake_accuracies, eval_reconstruction_losses, kl_divergences = [], [], [], [] 
+
   generator, discriminator = generator.to(device), discriminator.to(device)
   optim_G = torch.optim.AdamW(generator.parameters(), lr=generator_lr, betas=(adam_beta1, adam_beta2))
   optim_D = torch.optim.AdamW(discriminator.parameters(), lr=discriminator_lr, betas=(adam_beta1, adam_beta2))
 
   for epoch in tqdm(range(1, num_epochs + 1)):
-    curr_loss_G, curr_loss_D, curr_mse = 0, 0, 0
+    curr_loss_G, curr_loss_D, curr_mse, curr_kl = 0, 0, 0, 0
     for index, (keystroke_symbols, keystroke_times) in enumerate(train_dataloader):
-      if keystroke_symbols.shape[0] < batch_size:
-        continue
-      loss_G, loss_D, mse_loss = train_step(models=(generator, discriminator), optims=(optim_G, optim_D), 
+      # if keystroke_symbols.shape[0] < batch_size:
+      #   continue
+      loss_G, loss_D, mse_loss, kl_div = train_step(models=(generator, discriminator), optims=(optim_G, optim_D), 
                                   keystrokes=keystroke_symbols, keystroke_times=keystroke_times, rl_loss_lambda=rl_loss_lambda)
       curr_loss_G += loss_G.item()
       curr_loss_D += loss_D.item()
       curr_mse += mse_loss
+      curr_kl += kl_div
 
-      if index % (len(train_dataloader) // epoch_log) == 0:
+      if output and index % (len(train_dataloader) // epoch_log) == 0:
         print(f"[Epoch: {epoch} / {num_epochs}][{index:4d}/{len(train_dataloader):4d}] Generator loss: {loss_G:2.5f}, discriminator loss: {loss_D:2.5f}")
     
     if epoch % evaluation_interval == 0:
@@ -132,16 +143,20 @@ def train_loop(generator, discriminator, train_dataloader, validation_dataloader
       fake_accuracies.append(fake_accuracy)
       eval_reconstruction_losses.append(loss)
       kl_divergences.append(kl_div)
-      print(f"MSE loss: {loss:2.5f}, KL div: {kl_div:2.5f}, Real accuracy: {real_accuracy:2.5f}, Fake accuracy: {fake_accuracy:2.5f}")
+      if output: 
+        print(f"MSE loss: {loss:2.5f}, KL div: {kl_div:2.5f}, Real accuracy: {real_accuracy:2.5f}, Fake accuracy: {fake_accuracy:2.5f}")
 
     curr_loss_G /= len(train_dataloader)
     curr_loss_D /= len(train_dataloader)
     curr_mse /= len(train_dataloader)
+    curr_kl /= len(train_dataloader)
+
     loss_list_D.append(curr_loss_D)
     loss_list_G.append(curr_loss_G)
     mse_losses.append(curr_mse)
+    train_kl_divs.append(curr_kl)
 
-    if epoch % verbose == 0:
+    if output and epoch % verbose == 0:
       print(f"###### [Epoch: {epoch} / {num_epochs}] Epoch MSE loss: {curr_mse:2.10f} Epoch generator loss: {curr_loss_G:2.5f}, Epoch discriminator loss: {curr_loss_D:2.5f}")
 
-  return loss_list_G, loss_list_D, mse_losses, eval_reconstruction_losses, kl_divergences, real_accuracies, fake_accuracies
+  return loss_list_G, loss_list_D, mse_losses, eval_reconstruction_losses, train_kl_divs, kl_divergences, real_accuracies, fake_accuracies
