@@ -67,7 +67,8 @@ class Dataset():
         self.max_time = 3000
         self.min_time = -1500
         self.df_size_lim = 25
-        self.participants = find_all_participants(self.path)
+        self.participants = np.array(find_all_participants(self.path))
+        np.random.shuffle(self.participants)
         self.train_size = train_size
         self.valid_size = (1 - self.train_size) / 2
         self.test_size =  (1 - self.train_size) / 2
@@ -111,10 +112,11 @@ class Dataset():
             return False
         return True
 
-    def create_dataset(self, norm_X: bool = False, starting_from: int = 0):
+    def create_dataset(self, norm_X: bool = False, starting_from: int = 0, return_participants: bool = False):
         X = torch.tensor([], dtype=torch.float32)
         y = torch.tensor([], dtype=torch.float32)
-        i = 0 
+        i = 0
+        processed_participants = []
 
         for participant in self.participants[starting_from:]:
             try:
@@ -126,16 +128,21 @@ class Dataset():
                 continue
             X, y = torch.cat((X, X_curr)), torch.cat((y, y_curr))
             i += 1
+            processed_participants.append(participant)
             if i == self.limit:
                 break
         
         if self.norm:
-            X, y = self._norm_data(X, y, norm_X = False)
+            X, y = self._norm_data(X, y, norm_X = norm_X)
         
         dataset = torch.utils.data.TensorDataset(X.int(), y)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
 
         print(f"Number of batches: {len(dataloader)}, Number of instances: {len(dataloader.dataset)}")
+        
+        if return_participants:
+            return dataloader, processed_participants
+    
         return dataloader
 
     def create_triplet_dataset(self, starting_from: int = 0):
