@@ -3,11 +3,10 @@ import sys
 
 import torch.nn as nn
 import torch.nn.functional as F
-from data import *
+from models.data import *
 
-sys.path.append(f"../../masters_thesis")
 from analysis.helpers import *
-from model.utils import *
+from models.utils import *
 
 #================ Variables ================#
 torch.manual_seed(20801)

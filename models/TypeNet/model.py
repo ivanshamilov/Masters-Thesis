@@ -4,21 +4,20 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 
-sys.path.append(f"../../masters_thesis")
-from model.utils import *
+from models.utils import *
 
 
 class TypeNet(nn.Module, Eops):
   """
   Implementation of the TypeNet with a Triplet Loss (https://arxiv.org/pdf/2101.05570.pdf)
   """
-  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float):
+  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3):
     super(TypeNet, self).__init__()
     # input size -> [batch_size, 48 (3 time series with the length of window_size), 3 features (keycode, HL, IKI)]
     self.bn1 = nn.BatchNorm1d(window_size)
     self.register_buffer("recurrent_dropout", torch.tensor(recurrent_dropout))
     self.register_buffer("window_size", torch.tensor(window_size))
-    self.lstm1 = nn.LSTM(input_size=3, hidden_size=128, num_layers=1, batch_first=True)
+    self.lstm1 = nn.LSTM(input_size=input_size, hidden_size=128, num_layers=1, batch_first=True)
     self.interlayer_dropout = nn.Dropout(p=interlayer_dropout)
     self.bn2 = nn.BatchNorm1d(128)
     self.lstm2 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True)
@@ -64,3 +63,20 @@ class TypeNet(nn.Module, Eops):
       losses = criterion(anchor=anchor, positive=positive, negative=negative)
 
     return anchor, positive, negative, losses
+
+
+class Classificator(TypeNet):
+  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3):
+    super(Classificator, self).__init__(window_size=window_size, interlayer_dropout=interlayer_dropout, recurrent_dropout=recurrent_dropout)
+    self.ln1 = nn.Linear(in_features=128, out_features=512)
+    self.dropout = nn.Dropout(p=0.25)
+    self.ln_head = nn.Linear(in_features=512, out_features=1)
+  
+  def forward(self, x):
+    x = self.single_forward(x)
+    x = self.ln1(x)
+    x = self.dropout(x)
+    x = self.ln_head(x)
+    return F.sigmoid(x)
+
+  
