@@ -3,10 +3,6 @@ import numpy as np
 import polars as pl
 import torch.nn.functional as F
 
-from tqdm import tqdm
-
-import sys
-sys.path.append(f"../masters_thesis")
 from analysis.helpers import Mapper, find_all_participants, read_data_for_participant
 from typing import Tuple
 

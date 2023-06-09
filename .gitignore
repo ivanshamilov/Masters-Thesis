@@ -140,3 +140,4 @@ results/
 
 # test notebooks
 notebooks/
+models/pretrained

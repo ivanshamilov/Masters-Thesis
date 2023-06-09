@@ -1,5 +1,4 @@
 import sys
-sys.path.append("../../masters_thesis")
 
 import os
 import re 
@@ -11,7 +10,7 @@ from typing import Union, List
 import polars as pl
 from polars.exceptions import ColumnNotFoundError
 
-from .vars import ROOT_DIR
+from analysis.vars import ROOT_DIR
 
 
 MAIN_DIR = f"{ROOT_DIR}/data/small_data"
