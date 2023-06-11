@@ -75,7 +75,7 @@ def reconstruction_loss(input: torch.Tensor, target: torch.Tensor):
   return F.mse_loss(input=input, target=target).item()
 
 
-def train_step(models: nn.Module, optims: Tuple[torch.optim.Optimizer], keystrokes: torch.Tensor, keystroke_times: torch.Tensor, rl_loss_lambda: float):
+def train_step(models: Tuple[nn.Module], optims: Tuple[torch.optim.Optimizer], keystrokes: torch.Tensor, keystroke_times: torch.Tensor, rl_loss_lambda: float):
   generator, discriminator = models
   optim_G, optim_D = optims
 
