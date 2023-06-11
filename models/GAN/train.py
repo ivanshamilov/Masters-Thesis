@@ -75,7 +75,7 @@ def reconstruction_loss(input: torch.Tensor, target: torch.Tensor):
   return F.mse_loss(input=input, target=target).item()
 
 
-def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
+def train_step(models: nn.Module, optims: Tuple[torch.optim.Optimizer], keystrokes: torch.Tensor, keystroke_times: torch.Tensor, rl_loss_lambda: float):
   generator, discriminator = models
   optim_G, optim_D = optims
 
@@ -108,7 +108,9 @@ def train_step(models, optims, keystrokes, keystroke_times, rl_loss_lambda):
   return loss_G, total_loss_D, mse_loss, kl_div
 
 
-def train_loop(generator, discriminator, train_dataloader, validation_dataloader, num_epochs=num_epochs, generator_lr=generator_lr, discriminator_lr=discriminator_lr, device=device, rl_loss_lambda=5, verbose=10, output=True):
+def train_loop(generator: nn.Module, discriminator: nn.Module, train_dataloader: torch.utils.data.DataLoader, validation_dataloader: torch.utils.data.DataLoader, 
+               num_epochs: int = num_epochs, generator_lr: float = generator_lr, discriminator_lr: float = discriminator_lr, device: Union[str, torch.device] = device, 
+               rl_loss_lambda: float = 5.0, verbose: int = 10, output: bool = True):
   actuals, outputs = [], []
   loss_list_D, loss_list_G, mse_losses = [], [], []
   real_accuracies, fake_accuracies, eval_reconstruction_losses, kl_divergences = [], [], [], [] 

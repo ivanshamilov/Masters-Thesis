@@ -60,7 +60,7 @@ class Generator(nn.Module, Eops):
     self.apply(self._init_weights)
     print(self.num_params())
 
-  def forward(self, latent_space, condition):
+  def forward(self, latent_space: torch.Tensor, condition: torch.Tensor):
     condition_out = self.label_conditioned_generator(condition)
     latent_out = self.latent(latent_space)
     condition_out = condition_out.view(-1, 16, 4 * 128)
@@ -106,7 +106,7 @@ class Discriminator(nn.Module, Eops):
     self.apply(self._init_weights)
     print(self.num_params())
 
-  def forward(self, keystroke_times, condition_symbols):
+  def forward(self, keystroke_times: torch.Tensor, condition_symbols: torch.Tensor):
     condition_out = self.label_conditioned_discriminator(condition_symbols)
     keystroke_times = self.embed_keystroke(keystroke_times)
     x = torch.cat((keystroke_times, condition_out), dim=2)

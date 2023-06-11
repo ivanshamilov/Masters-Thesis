@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import Union
 from tqdm import tqdm
 
 #================ Variables ================#
@@ -20,7 +21,7 @@ adam_beta2 = 0.999
 #================ Methods ================#
 
 @torch.no_grad()
-def evaluate_model(model, dataloader):
+def evaluate_model(model: nn.Module, dataloader: torch.utils.data.DataLoader):
     model.eval()
     loss, ap_distance, an_distance, an_ap_diff = 0, 0, 0, 0
 
@@ -44,7 +45,7 @@ def evaluate_model(model, dataloader):
     return loss, ap_distance, an_distance, an_ap_diff
 
 
-def train_loop(model, train_dataloader, validation_dataloader, device=device):
+def train_loop(model: nn.Module, train_dataloader: torch.utils.data.DataLoader, validation_dataloader: torch.utils.data.DataLoader, device: Union[str, torch.device] = device):
     model.train()
     train_loss_list, train_ap_list, train_an_list, train_an_ap_diff_list = [], [], [], []
     val_loss_list, val_ap_list, val_an_list, val_an_ap_diff_list = [], [], [], []

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from models.utils import *
 
-from typing import Union
+from typing import Union, Optional
 
 
 class TypeNet(nn.Module, Eops):
@@ -26,7 +26,7 @@ class TypeNet(nn.Module, Eops):
     self.lstm2 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True)
     print(self.num_params())
 
-  def lstm_forward(self, layer, x):
+  def lstm_forward(self, layer: nn.Module, x: torch.Tensor):
     _, time_steps, _ = x.size()
     hx = torch.randn(1, 128, device=self.device)
     cx = torch.randn(1, 128, device=self.device)
@@ -39,7 +39,7 @@ class TypeNet(nn.Module, Eops):
     output = torch.stack(output, dim=0)
     return output, (hx, cx)
 
-  def single_forward(self, x):
+  def single_forward(self, x: torch.Tensor):
     x = self.bn1(x)
     x, _ = self.lstm_forward(self.lstm1, x)
     x = self.interlayer_dropout(x)
@@ -48,7 +48,7 @@ class TypeNet(nn.Module, Eops):
     x, _ = self.lstm_forward(self.lstm2, x.permute(0, 2, 1))
     return x
 
-  def forward(self, anchor, positive, negative = None, calculate_loss: bool = True):
+  def forward(self, anchor: torch.Tensor, positive: torch.Tensor, negative: Optional[torch.Tensor] = None, calculate_loss: bool = True):
     """
     Triplet loss will be used -> the model will return 3 outputs
     A triplet is composed by three different samples from two different classes: 

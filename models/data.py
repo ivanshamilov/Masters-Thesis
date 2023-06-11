@@ -71,7 +71,7 @@ class Dataset():
         self.valid_size = (1 - self.train_size) / 2
         self.test_size =  (1 - self.train_size) / 2
 
-    def data_for_participant(self, participant):
+    def data_for_participant(self, participant: str):
         return read_data_for_participant(participant, self.path, drop_timestamps=True, 
                                          columns_to_read=["TEST_SECTION_ID", "KEYCODE", "RELEASE_TIME", "PRESS_TIME"])[self.feature_columns]  
     
@@ -105,12 +105,12 @@ class Dataset():
 
         return negative_X[:size], negative_Y[:size]
     
-    def _df_sanity(self, df):
+    def _df_sanity(self, df: pl.DataFrame):
         if (df.shape[0] < self.df_size_lim) or (df.to_numpy().max() > self.max_time) or (df.to_numpy().min() < self.min_time):
             return False
         return True
     
-    def _create_dataloader(self, dataset):
+    def _create_dataloader(self, dataset: torch.Tensor):
         train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset=dataset, lengths=[self.train_size, self.valid_size, self.test_size])
 
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
@@ -186,7 +186,7 @@ class Dataset():
 
         return train_dataloader, valid_dataloader, test_dataloader
 
-    def create_classification_dataset(self, participant, other_users: int = 5):
+    def create_classification_dataset(self, participant: str, other_users: int = 5):
         # 0 - negative, 1 - positive
         other_participants = np.delete(self.participants, np.where(self.participants == participant))
         np.random.shuffle(other_participants)
@@ -217,7 +217,7 @@ class Dataset():
             except TypeError:
                 continue
             ks_symbols, ks_time = torch.cat((ks_symbols, curr_symbols[:self.batch_size])), torch.cat((ks_time, curr_time[:self.batch_size])) # only one batch from each other participant
-            y = torch.cat((y, torch.zeros(self.batch_size, 1)))
+            y = torch.cat((y, torch.zeros(curr_symbols[:self.batch_size].shape[0], 1)))
 
             i += 1
             if i == other_users:
