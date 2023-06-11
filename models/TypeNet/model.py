@@ -6,15 +6,18 @@ import torch.nn.functional as F
 
 from models.utils import *
 
+from typing import Union
+
 
 class TypeNet(nn.Module, Eops):
   """
   Implementation of the TypeNet with a Triplet Loss (https://arxiv.org/pdf/2101.05570.pdf)
   """
-  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3):
+  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3, device: Union[str, torch.device] = "cpu"):
     super(TypeNet, self).__init__()
     # input size -> [batch_size, 48 (3 time series with the length of window_size), 3 features (keycode, HL, IKI)]
     self.bn1 = nn.BatchNorm1d(window_size)
+    self.register_buffer("device", torch.tensor(device))
     self.register_buffer("recurrent_dropout", torch.tensor(recurrent_dropout))
     self.register_buffer("window_size", torch.tensor(window_size))
     self.lstm1 = nn.LSTM(input_size=input_size, hidden_size=128, num_layers=1, batch_first=True)
@@ -25,8 +28,8 @@ class TypeNet(nn.Module, Eops):
 
   def lstm_forward(self, layer, x):
     _, time_steps, _ = x.size()
-    hx = torch.randn(1, 128)
-    cx = torch.randn(1, 128)
+    hx = torch.randn(1, 128, device=self.device)
+    cx = torch.randn(1, 128, device=self.device)
     output = []
     for i in range(time_steps):
       out, (hx, cx) = layer(x[:, i], (hx, cx))
@@ -63,20 +66,3 @@ class TypeNet(nn.Module, Eops):
       losses = criterion(anchor=anchor, positive=positive, negative=negative)
 
     return anchor, positive, negative, losses
-
-
-class Classificator(TypeNet):
-  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3):
-    super(Classificator, self).__init__(window_size=window_size, interlayer_dropout=interlayer_dropout, recurrent_dropout=recurrent_dropout)
-    self.ln1 = nn.Linear(in_features=128, out_features=512)
-    self.dropout = nn.Dropout(p=0.25)
-    self.ln_head = nn.Linear(in_features=512, out_features=1)
-  
-  def forward(self, x):
-    x = self.single_forward(x)
-    x = self.ln1(x)
-    x = self.dropout(x)
-    x = self.ln_head(x)
-    return F.sigmoid(x)
-
-  

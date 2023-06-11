@@ -45,8 +45,8 @@ def make_predictions(generated_sample: torch.Tensor, real_time_sample: torch.Ten
 
   ks_symbols = ks_symbols.float() / 100
 
-  generated_sample = torch.cat((generated_sample, ks_symbols.unsqueeze(dim=-1)), dim=2)
-  real_time_sample = torch.cat((real_time_sample, ks_symbols.unsqueeze(dim=-1)), dim=2)
+  generated_sample = torch.cat((ks_symbols.unsqueeze(dim=-1), generated_sample), dim=2)
+  real_time_sample = torch.cat((ks_symbols.unsqueeze(dim=-1), real_time_sample), dim=2)
 
   print(generated_sample.shape)
 

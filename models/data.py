@@ -3,8 +3,10 @@ import numpy as np
 import polars as pl
 import torch.nn.functional as F
 
-from analysis.helpers import Mapper, find_all_participants, read_data_for_participant
+import random
 from typing import Tuple
+
+from analysis.helpers import Mapper, find_all_participants, read_data_for_participant
 
 
 def sliding_window(x: torch.Tensor, window_size: int, step_size: int = 1) -> torch.Tensor:
@@ -107,6 +109,19 @@ class Dataset():
         if (df.shape[0] < self.df_size_lim) or (df.to_numpy().max() > self.max_time) or (df.to_numpy().min() < self.min_time):
             return False
         return True
+    
+    def _create_dataloader(self, dataset):
+        train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset=dataset, lengths=[self.train_size, self.valid_size, self.test_size])
+
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+        valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+
+        print(f"Number of batches in train loader: {len(train_dataloader)}, Number of instances in train loader: {len(train_dataloader.dataset)}")
+        print(f"Number of batches in valid loader: {len(valid_dataloader)}, Number of instances in valid loader: {len(valid_dataloader.dataset)}")
+        print(f"Number of batches in test loader: {len(test_dataloader)}, Number of instances in test loader: {len(test_dataloader.dataset)}")
+
+        return train_dataloader, valid_dataloader, test_dataloader
 
     def create_dataset(self, norm_X: bool = False, starting_from: int = 0, return_participants: bool = False):
         X = torch.tensor([], dtype=torch.float32)
@@ -167,13 +182,53 @@ class Dataset():
 
         dataset = torch.cat((X.view(*X.shape, 1), y), dim=-1)  # keycodes are also the input features for TypeNet
 
-        train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(dataset=dataset, lengths=[self.train_size, self.valid_size, self.test_size])
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
-        valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
-        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=self.shuffle, drop_last=True)
+        train_dataloader, valid_dataloader, test_dataloader = self._create_dataloader(dataset)
 
-        print(f"Number of batches in train loader: {len(train_dataloader)}, Number of instances in train loader: {len(train_dataloader.dataset)}")
-        print(f"Number of batches in valid loader: {len(valid_dataloader)}, Number of instances in valid loader: {len(valid_dataloader.dataset)}")
-        print(f"Number of batches in test loader: {len(test_dataloader)}, Number of instances in test loader: {len(test_dataloader.dataset)}")
+        return train_dataloader, valid_dataloader, test_dataloader
+
+    def create_classification_dataset(self, participant, other_users: int = 5):
+        # 0 - negative, 1 - positive
+        other_participants = np.delete(self.participants, np.where(self.participants == participant))
+        np.random.shuffle(other_participants)
+        
+        X = torch.tensor([], dtype=torch.float32)
+        y = torch.tensor([], dtype=torch.float32)
+
+        ks_symbols = torch.tensor([], dtype=torch.float32)
+        ks_time = torch.tensor([], dtype=torch.float32)
+
+        i = 0
+
+        # Collect data for chosen participant
+
+        df = self.data_for_participant(participant)
+        curr_symbols, curr_time = prepare_data(df, self.window_size)
+        ks_symbols, ks_time = torch.cat((ks_symbols, curr_symbols)), torch.cat((ks_time, curr_time))
+        y = torch.cat((y, torch.ones(ks_symbols.shape[0], 1)))
+
+        # Colelct data for 5 other participants 
+
+        for op in other_participants:
+            df = self.data_for_participant(op)
+            if not self._df_sanity(df):
+                continue
+            try: 
+                curr_symbols, curr_time = prepare_data(df, self.window_size)
+            except TypeError:
+                continue
+            ks_symbols, ks_time = torch.cat((ks_symbols, curr_symbols[:self.batch_size])), torch.cat((ks_time, curr_time[:self.batch_size])) # only one batch from each other participant
+            y = torch.cat((y, torch.zeros(self.batch_size, 1)))
+
+            i += 1
+            if i == other_users:
+                break
+
+        if self.norm:
+            ks_symbols, ks_time = self._norm_data(ks_symbols, ks_time)
+        
+        X = torch.cat((ks_symbols.view(*ks_symbols.shape, 1), ks_time), dim=-1)
+        dataset = torch.utils.data.TensorDataset(X, y)
+
+        train_dataloader, valid_dataloader, test_dataloader = self._create_dataloader(dataset)
 
         return train_dataloader, valid_dataloader, test_dataloader
