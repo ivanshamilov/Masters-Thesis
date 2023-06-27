@@ -36,28 +36,27 @@ def find_learning_rate(learning_rates: np.array, dataloader: torch.utils.data.Da
 
 
 @torch.no_grad()
-def make_predictions(generated_sample: torch.Tensor, real_time_sample: torch.Tensor, ks_symbols: torch.Tensor, 
-                     typenet: nn.Module, device: str, threshold: float, return_raw: bool = True):
+def make_predictions(generated_sample: torch.Tensor, real_time_sample: torch.Tensor, ks_symbols_gen: torch.Tensor, 
+                     ks_symbols_real: torch.Tensor, typenet: nn.Module, device: str, threshold: float, return_raw: bool = True):
   typenet.eval()
   typenet.to(device)
   generated_sample = generated_sample.to(device)
   real_time_sample = real_time_sample.to(device)
 
-  ks_symbols = ks_symbols.float() / 100
+  ks_symbols_gen = ks_symbols_gen.float() / 100
+  ks_symbols_real = ks_symbols_real.float() / 100
 
-  generated_sample = torch.cat((ks_symbols.unsqueeze(dim=-1), generated_sample), dim=2)
-  real_time_sample = torch.cat((ks_symbols.unsqueeze(dim=-1), real_time_sample), dim=2)
+  generated_sample = torch.cat((ks_symbols_gen.unsqueeze(dim=-1), generated_sample), dim=2)
+  real_time_sample = torch.cat((ks_symbols_real.unsqueeze(dim=-1), real_time_sample), dim=2)
 
   print(generated_sample.shape)
 
   if generated_sample.shape[0] > 128:
     generated_sample = torch.split(generated_sample, 128, dim=0)
     real_time_sample = torch.split(real_time_sample, 128, dim=0)
-    ks_symbols = torch.split(ks_symbols, 128, dim=0)
   else:
     generated_sample = generated_sample.unsqueeze(dim=0)
     real_time_sample = real_time_sample.unsqueeze(dim=0)
-    ks_symbols = ks_symbols.unsqueeze(dim=0)
   
   print(len(generated_sample))
 

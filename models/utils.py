@@ -51,7 +51,6 @@ class TripletLoss(nn.Module):
       loss = torch.mean(torch.relu(torch.pow(euclidean_distance_positive, 2) - torch.pow(euclidean_distance_negative, 2) + self.margin))
       loss_dict["loss"] = loss
       loss_dict["an_distance"] = euclidean_distance_negative
-      # difference should be > 0 (Anchor-Negative distance should be greater than Anchor-Positive distance)
       loss_dict["an_ap_diff"] = loss_dict["an_distance"] - loss_dict["ap_distance"]
 
     return loss_dict

@@ -13,11 +13,10 @@ class TypeNet(nn.Module, Eops):
   """
   Implementation of the TypeNet with a Triplet Loss (https://arxiv.org/pdf/2101.05570.pdf)
   """
-  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3, device: Union[str, torch.device] = "cpu"):
+  def __init__(self, window_size: int, interlayer_dropout: float, recurrent_dropout: float, input_size: int = 3):
     super(TypeNet, self).__init__()
     # input size -> [batch_size, 48 (3 time series with the length of window_size), 3 features (keycode, HL, IKI)]
     self.bn1 = nn.BatchNorm1d(window_size)
-    self.register_buffer("device", torch.tensor(device))
     self.register_buffer("recurrent_dropout", torch.tensor(recurrent_dropout))
     self.register_buffer("window_size", torch.tensor(window_size))
     self.lstm1 = nn.LSTM(input_size=input_size, hidden_size=128, num_layers=1, batch_first=True)
@@ -26,10 +25,10 @@ class TypeNet(nn.Module, Eops):
     self.lstm2 = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True)
     print(self.num_params())
 
-  def lstm_forward(self, layer: nn.Module, x: torch.Tensor):
+  def lstm_forward(self, layer: nn.Module, x: torch.Tensor, device: Union[str, torch.device] = "cpu"):
     _, time_steps, _ = x.size()
-    hx = torch.randn(1, 128, device=self.device)
-    cx = torch.randn(1, 128, device=self.device)
+    hx = torch.randn(1, 128, device=device)
+    cx = torch.randn(1, 128, device=device)
     output = []
     for i in range(time_steps):
       out, (hx, cx) = layer(x[:, i], (hx, cx))

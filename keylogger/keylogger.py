@@ -50,10 +50,6 @@ class KeyLogger(object):
       _key = key.name
     else:
       _key = key.char.lower()
-    # match type(key):
-    #   case pynput.keyboard._darwin.KeyCode: _key = key.char.lower()
-    #   # case KeyCode: _key = key.char.lower()
-    #   case _: _key = key.name # add numpads, virtual keys range from 96 to 105 (96 - 1, ..., 105 - 9)
     return PYNPUT_TO_DEFAULT.get(_key, _key)
     
   def on_key_release(self, key: Union[KeyCode, Key]) -> None:
@@ -106,6 +102,63 @@ if __name__ == "__main__":
   with open("mappings/key-codes.json", "rb") as f:
       MAPPING = json.load(f)
 
-  keylogger = KeyLogger(mapping=MAPPING, initial_sentence="A red ball.")
+  # sentences = [
+  #   "Few black taxis drive up major roads on quiet hazy nights.",
+  #   "Levi Lentz packed my bag with six quarts of juice.",
+  #   "A quick brown fox jumps over a lazy dog.",
+  #   "Bobby Klum awarded Jayme sixth place for her very high quiz.",
+  #   "Back in June we delivered oxygen equipment of the same size.",
+  #   "J.Fox made five quick plays to win the big prize.",
+  #   "I loved this movie the first time I saw it and on each subsequent viewing I always notice at least one new detail.",
+  #   "Wasn't the shop located like right on the beach or something?",
+  #   "It was worth all the money I gave for it!",
+  #   "Am I the only one who sees this?",
+  #   "I can't believe there are people out there that did not like this movie!",
+  #   "This would have to be by far the greatest series I have ever seen."
+  # ]
+
+  # sentences = [
+  #   "She hoped she wasn't about to get fired.",
+  #   "The computer is dying on me.",
+  #   "I don't like close spaces.",
+  #   "This is my younger brother.",
+  #   "The app wasn't loading for me.",
+  #   "I have a name and a surname.",
+  #   "I put on my underclothes, shirt and trousers.",
+  #   "We won't be taking you with us.",
+  #   "Does she drink coffee?",
+  #   "We are starting to enter a new chapter.",
+  # ]
+
+  # sentences = [
+  #   "The tables were made of fake wood.",
+  #   "The bleeding isn't Tom's biggest problem.",
+  #   "Hairless cats look demonic.",
+  #   "My water bottle is white and made of steel.",
+  #   "I'm going to crash at your place.",
+  #   "The sun comes up in the east.",
+  #   "He is only about six feet tall.",
+  #   "He didn't get the position.",
+  #   "Do you mind if I smoke?",
+  #   "Good location choice.",
+  # ]
+
+  # sentences = [
+  #   "The steak is on the grill.",
+  #   "The children are at home.",
+  #   "She had nothing else to say to him.",
+  #   "I have a small house.",
+  #   "He has made a big improvement in tennis.",
+  #   "The baby was in a parka in the stroller.",
+  #   "The pencil broke in the middle of my test.",
+  #   "I am a football fan.",
+  #   "He goes to school.",
+  #   "Sit down and cross your legs, please!",
+  # ]
+
+
+  index = 8
+  print("Start typing...")
+  keylogger = KeyLogger(mapping=MAPPING, initial_sentence=sentences[index])
   keylogger.listen()
-  keylogger.to_csv("hello.csv")
+  keylogger.to_csv(f"{index+1}.csv")

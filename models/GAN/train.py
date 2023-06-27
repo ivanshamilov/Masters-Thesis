@@ -13,7 +13,6 @@ batch_size = 128
 num_epochs = 500    # -> number of time the model will see whole dataset
 epoch_log = 1 # -> prints per epoch 
 evaluation_interval = 25 # -> evaluate model every 'revaluation_interval' epochs
-evaluation_steps = 50  # -> number of iterations for evaluation process (how many batches will be used)
 
 generator_lr = 3e-4  # -> generator learning rate
 discriminator_lr = 4e-4 # -> discriminator learning rate
@@ -47,13 +46,10 @@ def evaluate_model(generator: nn.Module, discriminator: nn.Module, dataloader: t
     disc_fake_output = discriminator(generated_out, ks_symbols)
     fake_accuracy += (torch.round(disc_fake_output) == labels).float().mean().item()
 
-    if i == evaluation_steps - 1:
-      break
-
-  reconstruction_loss /= evaluation_steps
-  kl_div /= evaluation_steps
-  real_accuracy /= evaluation_steps
-  fake_accuracy /= evaluation_steps
+  reconstruction_loss /= len(dataloader)
+  kl_div /= len(dataloader)
+  real_accuracy /= len(dataloader)
+  fake_accuracy /= len(dataloader)
 
   discriminator.train()
   generator.train()

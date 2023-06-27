@@ -201,12 +201,12 @@ class Dataset():
 
         # Collect data for chosen participant
 
-        df = self.data_for_participant(participant)
-        curr_symbols, curr_time = prepare_data(df, self.window_size)
-        ks_symbols, ks_time = torch.cat((ks_symbols, curr_symbols)), torch.cat((ks_time, curr_time))
-        y = torch.cat((y, torch.ones(ks_symbols.shape[0], 1)))
+        # df = self.data_for_participant(participant)
+        # curr_symbols, curr_time = prepare_data(df, self.window_size)
+        # ks_symbols, ks_time = torch.cat((ks_symbols, curr_symbols)), torch.cat((ks_time, curr_time))
+        # y = torch.cat((y, torch.ones(ks_symbols.shape[0], 1)))
 
-        # Colelct data for 5 other participants 
+        # Collect data for 5 other participants 
 
         for op in other_participants:
             df = self.data_for_participant(op)
@@ -227,8 +227,9 @@ class Dataset():
             ks_symbols, ks_time = self._norm_data(ks_symbols, ks_time)
         
         X = torch.cat((ks_symbols.view(*ks_symbols.shape, 1), ks_time), dim=-1)
-        dataset = torch.utils.data.TensorDataset(X, y)
+        return X, y
+        # dataset = torch.utils.data.TensorDataset(X, y)
 
-        train_dataloader, valid_dataloader, test_dataloader = self._create_dataloader(dataset)
+        # train_dataloader, valid_dataloader, test_dataloader = self._create_dataloader(dataset)
 
-        return train_dataloader, valid_dataloader, test_dataloader
+        # return train_dataloader, valid_dataloader, test_dataloader
